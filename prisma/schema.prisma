@@ -1,0 +1,873 @@
+// ---------------------------------------------------------------------------
+// Centro Sugbo Eagles Club Members Portal
+// Prisma schema - PostgreSQL (Neon compatible)
+//
+// Design rules enforced here:
+//  * Money is always Decimal(12,2) / Decimal(14,2) - never Float.
+//  * Nothing that can be referenced historically is hard-deleted; records carry
+//    status columns (voided / archived / deactivated) instead.
+//  * Officer history is append-only (OfficerAssignment keeps term ranges).
+//  * Business uniqueness is expressed with real UNIQUE constraints so that
+//    concurrent requests cannot create duplicate attendance/payment records.
+// ---------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================== ENUMS ======================================
+
+enum RoleKey {
+  MEMBER
+  SECRETARY
+  TREASURER
+  PRESIDENT
+  SYSTEM_ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  DEACTIVATED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
+  EXPUNGED
+}
+
+enum OfficerStatus {
+  CURRENT
+  ENDED
+  UPCOMING
+}
+
+enum PostCategory {
+  GMM
+  COMMUNITY_SERVICE
+  NEWS
+  ACTIVITIES
+  ANNOUNCEMENT
+}
+
+enum PublicationStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ActivityType {
+  GMM
+  COMMUNITY_SERVICE
+  OUTREACH
+  TRAINING
+  SOCIAL
+  OTHER
+}
+
+enum AttendanceRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum AttendanceRecordStatus {
+  PRESENT
+  ABSENT
+  EXCUSED
+  LATE
+}
+
+enum AttendanceSource {
+  REQUEST_APPROVAL
+  MANUAL
+}
+
+enum NoticePriority {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
+enum NoticeAudience {
+  ALL_MEMBERS
+  ALL_OFFICERS
+  SYSTEM_ADMIN
+  PRESIDENT
+  SECRETARY
+  TREASURER
+}
+
+enum MeetingType {
+  GENERAL_MEMBERSHIP_MEETING
+  BOARD_MEETING
+  REGULAR
+  EMERGENCY
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum MinuteStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+}
+
+enum ObligationType {
+  MONTHLY_DUES
+  COMMUNITY_SERVICE
+  OTHER_FEE
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING_VERIFICATION
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  WAIVED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  ONLINE_BANKING
+  CHECK
+  GCASH
+  MAYA
+  OTHER
+}
+
+enum SubmissionStatus {
+  PENDING_VERIFICATION
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum TransactionStatus {
+  POSTED
+  VOIDED
+}
+
+enum AttachmentKind {
+  IMAGE
+  DOCUMENT
+  PROOF_OF_PAYMENT
+  PROFILE_PHOTO
+}
+
+enum NotificationType {
+  ATTENDANCE_SUBMITTED
+  ATTENDANCE_APPROVED
+  ATTENDANCE_REJECTED
+  PAYMENT_SUBMITTED
+  PAYMENT_APPROVED
+  PAYMENT_REJECTED
+  ANNOUNCEMENT_PUBLISHED
+  NOTICE_PUBLISHED
+  EVENT_SCHEDULED
+  PAYMENT_OVERDUE
+  ACCOUNT_STATUS
+  SYSTEM
+}
+
+enum AuditCategory {
+  AUTH
+  ADMIN
+  MEMBER
+  ATTENDANCE
+  FINANCE
+  CONTENT
+  OFFICER
+  SYSTEM
+}
+
+enum SettingValueType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+// ============================== ROLES ======================================
+
+model Role {
+  id          String   @id @default(cuid())
+  key         RoleKey  @unique
+  name        String
+  description String?
+  /// JSON array of permission keys (kept in sync with lib/rbac.js).
+  permissions Json?
+  priority    Int      @default(100)
+  isSystem    Boolean  @default(true)
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([priority])
+}
+
+// ============================== USERS ======================================
+
+model User {
+  id                 String        @id @default(cuid())
+  /// Always stored lower-cased + trimmed; enforced by app validation + unique index.
+  email              String        @unique
+  passwordHash       String
+  fullName           String
+  roleId             String
+  role               Role          @relation(fields: [roleId], references: [id])
+  status             AccountStatus @default(ACTIVE)
+  mustChangePassword Boolean       @default(false)
+  failedLoginCount   Int           @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  lastLoginIp        String?
+  passwordChangedAt  DateTime?
+  /// Bumped on password reset / role change to invalidate outstanding JWTs.
+  tokenVersion       Int           @default(0)
+
+  memberId String? @unique
+  member   Member?
+
+  activitiesCreated   Activity[]             @relation("ActivityCreatedBy")
+  postsCreated        Post[]                 @relation("PostCreatedBy")
+  postsUpdated        Post[]                 @relation("PostUpdatedBy")
+  noticesCreated      Notice[]               @relation("NoticeCreatedBy")
+  meetingsCreated     Meeting[]              @relation("MeetingCreatedBy")
+  attendanceReviewed  AttendanceRequest[]    @relation("AttendanceReviewedBy")
+  attendanceApproved  AttendanceRecord[]     @relation("AttendanceApprovedBy")
+  attendanceRecorded  AttendanceRecord[]     @relation("AttendanceRecordedBy")
+  minutesPrepared     MeetingMinute[]        @relation("MinutePreparedBy")
+  minutesApproved     MeetingMinute[]        @relation("MinuteApprovedBy")
+  membersCreated      Member[]               @relation("MemberCreatedBy")
+  officerAppointed    OfficerAssignment[]    @relation("OfficerAppointedBy")
+  obligationsCreated  FinancialObligation[]  @relation("ObligationCreatedBy")
+  obligationsWaived   FinancialObligation[]  @relation("ObligationWaivedBy")
+  submissionsReviewed PaymentSubmission[]    @relation("SubmissionReviewedBy")
+  paymentsApproved    Payment[]              @relation("PaymentApprovedBy")
+  transactionsPosted  FinancialTransaction[] @relation("TransactionRecordedBy")
+  transactionsVoided  FinancialTransaction[] @relation("TransactionVoidedBy")
+  attachmentsUploaded Attachment[]           @relation("AttachmentUploadedBy")
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+  settingsUpdated     SystemSetting[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  /// Soft delete marker - the row is retained for referential history.
+  deletedAt DateTime?
+
+  @@index([status])
+  @@index([roleId])
+  @@index([deletedAt])
+}
+
+// ============================== MEMBERS ====================================
+
+model Member {
+  id             String           @id @default(cuid())
+  /// Human readable member id, e.g. CSEC-2024-0001 (format configurable).
+  memberNumber   String           @unique
+  firstName      String
+  middleName     String?
+  lastName       String
+  suffix         String?
+  email          String           @unique
+  contactNumber  String?
+  address        String?
+  birthday       DateTime?        @db.Date
+  dateJoined     DateTime         @db.Date
+  status         MembershipStatus @default(ACTIVE)
+  profileImage   String?
+  emergencyName  String?
+  emergencyPhone String?
+  bloodType      String?
+  yearsServed    Int              @default(0)
+  notes          String?          @db.Text
+
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  officerAssignments OfficerAssignment[]
+  meetingAttendees   MeetingAttendee[]
+  presidedMeetings   Meeting[]            @relation("MeetingPresider")
+  attendanceRequests AttendanceRequest[]
+  attendanceRecords  AttendanceRecord[]
+  obligations        FinancialObligation[]
+  submissions        PaymentSubmission[]
+  payments           Payment[]
+  transactions       FinancialTransaction[]
+  attachments        Attachment[]
+
+  createdById String?
+  createdBy   User?   @relation("MemberCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lastName, firstName])
+  @@index([status])
+  @@index([dateJoined])
+}
+
+// ============================== OFFICERS ===================================
+
+model OfficerPosition {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  assignments OfficerAssignment[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// Append-only ledger of who held which office and when. Ending a term updates
+/// `status`/`termEnd` - it never deletes the historical row.
+model OfficerAssignment {
+  id         String         @id @default(cuid())
+  memberId   String
+  member     Member         @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  positionId String
+  position   OfficerPosition @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  termStart  DateTime       @db.Date
+  termEnd    DateTime?      @db.Date
+  status     OfficerStatus  @default(CURRENT)
+  notes      String?        @db.Text
+
+  appointedById String?
+  appointedBy   User?   @relation("OfficerAppointedBy", fields: [appointedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([memberId])
+  @@index([positionId, status])
+  @@index([status])
+}
+
+// ============================== CONTENT ====================================
+
+model Post {
+  id        String           @id @default(cuid())
+  title     String
+  slug      String           @unique
+  category  PostCategory
+  excerpt   String?
+  content   String           @db.Text
+  eventDate DateTime?
+  startTime String?
+  endTime   String?
+  venue     String?
+  status    PublicationStatus @default(DRAFT)
+  isPinned  Boolean          @default(false)
+  /// Optional link to the attendance-tracked Activity that this update describes.
+  activityId String?         @unique
+  publishedAt DateTime?
+  archivedAt  DateTime?
+
+  createdById String
+  createdBy   User   @relation("PostCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedById String?
+  updatedBy   User?   @relation("PostUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  activity   Activity?    @relation("PostActivity", fields: [activityId], references: [id], onDelete: SetNull)
+  attachments Attachment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category, status])
+  @@index([status, publishedAt])
+  @@index([isPinned])
+}
+
+/// Attendance-tracked club event (GMM, community service, outreach, ...).
+model Activity {
+  id                String            @id @default(cuid())
+  title             String
+  description       String?           @db.Text
+  type              ActivityType
+  category          PostCategory
+  startsAt          DateTime
+  endsAt            DateTime?
+  venue             String?
+  address           String?
+  requiresAttendance Boolean          @default(true)
+  creditsHours      Decimal?          @db.Decimal(6, 2)
+  /// Community-service / activity fee used to generate member obligations.
+  feeAmount         Decimal?          @db.Decimal(12, 2)
+  capacity          Int?
+  status            PublicationStatus @default(DRAFT)
+  publishedAt       DateTime?
+  archivedAt        DateTime?
+
+  createdById String
+  createdBy   User   @relation("ActivityCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  posts              Post[]               @relation("PostActivity")
+  attendanceRequests AttendanceRequest[]
+  attendanceRecords  AttendanceRecord[]
+  obligations        FinancialObligation[]
+  meetings           Meeting[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, startsAt])
+  @@index([type])
+}
+
+model Notice {
+  id         String            @id @default(cuid())
+  title      String
+  content    String            @db.Text
+  noticeDate DateTime          @db.Date
+  priority   NoticePriority    @default(NORMAL)
+  audience   NoticeAudience    @default(ALL_MEMBERS)
+  status     PublicationStatus @default(DRAFT)
+  publishedAt DateTime?
+  archivedAt  DateTime?
+
+  createdById String
+  createdBy   User   @relation("NoticeCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  attachments Attachment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, noticeDate])
+  @@index([priority])
+}
+
+model Meeting {
+  id         String        @id @default(cuid())
+  title      String
+  meetingType MeetingType   @default(GENERAL_MEMBERSHIP_MEETING)
+  meetingDate DateTime      @db.Date
+  startTime  String
+  endTime    String?
+  venue      String?
+  description String?       @db.Text
+  status     MeetingStatus @default(SCHEDULED)
+  /// Links a scheduled GMM to its attendance-tracked activity.
+  activityId String?       @unique
+  activity   Activity?     @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  presidingOfficerId String?
+  presidingOfficer   Member? @relation("MeetingPresider", fields: [presidingOfficerId], references: [id], onDelete: SetNull)
+
+  minutes   MeetingMinute?
+  attendees MeetingAttendee[]
+
+  createdById String
+  createdBy   User   @relation("MeetingCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([meetingDate])
+  @@index([status])
+}
+
+model MeetingMinute {
+  id          String       @id @default(cuid())
+  meetingId   String       @unique
+  meeting     Meeting      @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  title       String
+  summary     String?      @db.Text
+  agenda      String?      @db.Text
+  discussion  String?      @db.Text
+  resolutions String?      @db.Text
+  actionItems String?      @db.Text
+  status      MinuteStatus @default(DRAFT)
+
+  preparedById String
+  preparedBy   User   @relation("MinutePreparedBy", fields: [preparedById], references: [id], onDelete: Restrict)
+  preparedByName String
+  approvedById String?
+  approvedBy   User?   @relation("MinuteApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedByName String?
+  approvedAt   DateTime?
+
+  attachments Attachment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+model MeetingAttendee {
+  id         String  @id @default(cuid())
+  meetingId  String
+  meeting    Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  memberId   String?
+  member     Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  name       String
+  position   String?
+  isPresent  Boolean @default(true)
+  remarks    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([meetingId])
+  @@index([memberId])
+}
+
+// ============================== ATTENDANCE =================================
+
+/// A member's claim of presence. Stays PENDING until a Secretary approves it.
+model AttendanceRequest {
+  id         String                  @id @default(cuid())
+  activityId String
+  activity   Activity                @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  memberId   String
+  member     Member                  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  status     AttendanceRequestStatus @default(PENDING)
+  memberRemarks String?              @db.Text
+  submittedAt DateTime               @default(now())
+
+  reviewedById String?
+  reviewedBy   User?   @relation("AttendanceReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  reviewRemarks String?              @db.Text
+
+  attendanceRecord AttendanceRecord?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Business rule: exactly one attendance request per member per activity.
+  /// A rejected request is re-opened (status -> PENDING) instead of duplicated.
+  @@unique([activityId, memberId], name: "uniq_attendance_request")
+  @@index([status, submittedAt])
+  @@index([memberId, status])
+}
+
+/// Officially recorded attendance - created on approval or manual recording.
+model AttendanceRecord {
+  id          String                 @id @default(cuid())
+  activityId  String
+  activity    Activity               @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  memberId    String
+  member      Member                 @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  status      AttendanceRecordStatus @default(PRESENT)
+  source      AttendanceSource
+  attendanceRequestId String?         @unique
+  attendanceRequest AttendanceRequest? @relation(fields: [attendanceRequestId], references: [id], onDelete: SetNull)
+  hoursCredited Decimal?              @db.Decimal(6, 2)
+  remarks     String?                @db.Text
+
+  approvedById String?
+  approvedBy   User?   @relation("AttendanceApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt   DateTime?
+  recordedById String?
+  recordedBy   User?   @relation("AttendanceRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One official record per member per activity.
+  @@unique([activityId, memberId], name: "uniq_attendance_record")
+  @@index([memberId, status])
+  @@index([activityId, status])
+}
+
+// ============================== FINANCE ====================================
+
+/// What a member owes: monthly dues, a community-service fee, or another fee.
+model FinancialObligation {
+  id          String         @id @default(cuid())
+  memberId    String
+  member      Member         @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  type        ObligationType
+  title       String
+  description String?        @db.Text
+  /// Billing period. Null for one-off fees.
+  periodMonth Int?
+  periodYear  Int?
+  amountDue   Decimal        @db.Decimal(12, 2)
+  amountPaid  Decimal        @default(0) @db.Decimal(12, 2)
+  balance     Decimal        @db.Decimal(12, 2)
+  dueDate     DateTime       @db.Date
+  status      PaymentStatus  @default(UNPAID)
+  activityId  String?
+  activity    Activity?      @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  notes       String?        @db.Text
+
+  /// Deterministic uniqueness key so that re-running a dues generation can never
+  /// create a second obligation for the same member + type + period (+ activity).
+  dedupeKey   String         @unique
+
+  waivedAt     DateTime?
+  waivedById   String?
+  waivedBy     User?          @relation("ObligationWaivedBy", fields: [waivedById], references: [id], onDelete: SetNull)
+  waiverReason String?        @db.Text
+
+  createdById String?
+  createdBy   User?   @relation("ObligationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  payments    Payment[]
+  submissions PaymentSubmission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([memberId, status])
+  @@index([periodYear, periodMonth])
+  @@index([dueDate, status])
+  @@index([type, status])
+}
+
+/// A member's claim that money was paid - pending Treasurer verification.
+model PaymentSubmission {
+  id              String            @id @default(cuid())
+  memberId        String
+  member          Member            @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  obligationId    String?
+  obligation      FinancialObligation? @relation(fields: [obligationId], references: [id], onDelete: SetNull)
+  type            ObligationType
+  periodMonth     Int?
+  periodYear      Int?
+  amount          Decimal           @db.Decimal(12, 2)
+  paymentDate     DateTime          @db.Date
+  referenceNumber String
+  paymentMethod   PaymentMethod
+  notes           String?           @db.Text
+  status          SubmissionStatus  @default(PENDING_VERIFICATION)
+  submittedAt     DateTime          @default(now())
+
+  reviewedById   String?
+  reviewedBy     User?     @relation("SubmissionReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedByName String?
+  reviewedAt     DateTime?
+  reviewRemarks  String?   @db.Text
+
+  payment     Payment?
+  attachments Attachment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// A member cannot submit the same bank reference twice.
+  @@unique([memberId, referenceNumber], name: "uniq_submission_reference")
+  @@index([status, submittedAt])
+  @@index([memberId, status])
+}
+
+/// An approved payment. One Payment per approved submission (unique submissionId),
+/// and at most one payment per ledger entry (unique transactionId).
+model Payment {
+  id            String         @id @default(cuid())
+  paymentNumber String         @unique
+  memberId      String
+  member        Member         @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  obligationId  String?
+  obligation    FinancialObligation? @relation(fields: [obligationId], references: [id], onDelete: SetNull)
+  submissionId  String?        @unique
+  submission    PaymentSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  amount        Decimal        @db.Decimal(12, 2)
+  paymentDate   DateTime       @db.Date
+  paymentMethod PaymentMethod
+  referenceNumber String
+  remarks       String?        @db.Text
+  /// True when the Treasurer recorded an offline payment with no member submission.
+  isManual      Boolean        @default(false)
+
+  approvedById String?
+  approvedBy   User?   @relation("PaymentApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedByName String?
+  approvedAt   DateTime @default(now())
+
+  /// Unique link to the income transaction generated by this payment. Guarantees
+  /// approving a submission can never double-post to the ledger.
+  transactionId String?        @unique
+  transaction   FinancialTransaction?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([memberId])
+  @@index([paymentDate])
+  @@index([obligationId])
+}
+
+model TransactionCategory {
+  id           String          @id @default(cuid())
+  code         String          @unique
+  name         String
+  type         TransactionType
+  description  String?
+  isSystem     Boolean         @default(false)
+  transactions FinancialTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+}
+
+/// Ledger entry. Never hard-deleted - mistakes are VOIDED with a reason.
+model FinancialTransaction {
+  id                String            @id @default(cuid())
+  transactionNumber String            @unique
+  transactionDate   DateTime          @db.Date
+  type              TransactionType
+  categoryId        String
+  category          TransactionCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  description       String
+  amount            Decimal           @db.Decimal(12, 2)
+  reference         String?
+  memberId          String?
+  member            Member?           @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  paymentId         String?           @unique
+  payment           Payment?          @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  status            TransactionStatus @default(POSTED)
+  voidedAt          DateTime?
+  voidedById        String?
+  voidedBy          User?             @relation("TransactionVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
+  voidReason        String?           @db.Text
+
+  recordedById String
+  recordedBy   User   @relation("TransactionRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  recordedByName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([transactionDate])
+  @@index([type, transactionDate])
+  @@index([categoryId])
+  @@index([memberId])
+  @@index([status])
+}
+
+/// Cash account used as the starting point for cash-flow reports.
+model FundAccount {
+  id             String   @id @default(cuid())
+  code           String   @unique
+  name           String
+  description    String?
+  openingBalance Decimal  @default(0) @db.Decimal(14, 2)
+  openingDate    DateTime @db.Date
+  isActive       Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================== PLATFORM ===================================
+
+model Attachment {
+  id         String         @id @default(cuid())
+  fileName   String
+  storedName String
+  url        String
+  mimeType   String
+  size       Int
+  kind       AttachmentKind @default(DOCUMENT)
+
+  postId       String?
+  post         Post?            @relation(fields: [postId], references: [id], onDelete: Cascade)
+  noticeId     String?
+  notice       Notice?          @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  minuteId     String?
+  minute       MeetingMinute?   @relation(fields: [minuteId], references: [id], onDelete: Cascade)
+  memberId     String?
+  member       Member?          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  submissionId String?
+  submission   PaymentSubmission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  uploadedById String
+  uploadedBy   User   @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+  @@index([noticeId])
+  @@index([minuteId])
+  @@index([memberId])
+  @@index([submissionId])
+}
+
+model Notification {
+  id       String           @id @default(cuid())
+  userId   String
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type     NotificationType
+  title    String
+  message  String           @db.Text
+  link     String?
+  entity   String?
+  entityId String?
+  readAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+/// Append-only audit trail. Never contains passwords, hashes or session secrets.
+model AuditLog {
+  id          String        @id @default(cuid())
+  category    AuditCategory
+  action      String
+  entity      String?
+  entityId    String?
+  description String?
+  userId      String?
+  userEmail   String?
+  userRole    RoleKey?
+  ipAddress   String?
+  userAgent   String?
+  /// Structured, non-sensitive context.
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([category, createdAt])
+  @@index([entity, entityId])
+  @@index([userId, createdAt])
+  @@index([action])
+}
+
+model SystemSetting {
+  id          String         @id @default(cuid())
+  key         String         @unique
+  value       String
+  valueType   SettingValueType @default(STRING)
+  category    String         @default("general")
+  label       String
+  description String?
+  isPublic    Boolean        @default(false)
+  updatedById String?
+  updatedBy   User?          @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([category])
+}

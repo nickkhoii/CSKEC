@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-serif: Georgia, 'Times New Roman', serif;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-slate-50 text-ink antialiased;
+    font-family: var(--font-sans);
+  }
+
+  /* A single, consistent focus treatment for keyboard users. */
+  :focus-visible {
+    @apply outline-none;
+  }
+
+  /* Respect users who prefer reduced motion. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Long-form club content (posts, notices, minutes). */
+  .prose-club {
+    @apply text-sm leading-relaxed text-ink-soft;
+  }
+  .prose-club p {
+    @apply mb-3 last:mb-0;
+  }
+  .prose-club ul {
+    @apply mb-3 list-disc space-y-1 pl-5;
+  }
+  .prose-club ol {
+    @apply mb-3 list-decimal space-y-1 pl-5;
+  }
+  .prose-club h2 {
+    @apply mb-2 mt-4 text-base font-semibold text-ink;
+  }
+  .prose-club h3 {
+    @apply mb-2 mt-3 text-sm font-semibold text-ink;
+  }
+  .prose-club strong {
+    @apply font-semibold text-ink;
+  }
+  .prose-club a {
+    @apply font-medium text-navy-700 underline underline-offset-2 hover:text-navy-900;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Print styles - reports and minutes must print cleanly on white paper.
+   -------------------------------------------------------------------------- */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  /* Hide navigation, toolbars and other chrome. */
+  nav,
+  aside,
+  header,
+  footer,
+  [data-print='hide'],
+  .no-print {
+    display: none !important;
+  }
+
+  main,
+  #main-content {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .lg\:pl-64 {
+    padding-left: 0 !important;
+  }
+
+  /* Cards become flat blocks; never split a table row across pages. */
+  [data-print='block'],
+  .print-block {
+    box-shadow: none !important;
+    border-color: #cbd5e1 !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  table {
+    break-inside: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr,
+  img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  a[href]::after {
+    content: '';
+  }
+
+  * {
+    color: #000 !important;
+    background: transparent !important;
+  }
+}
+
+/* Visible only to screen readers. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Skip link: hidden until focused by keyboard users. */
+.skip-link {
+  @apply sr-only;
+}
+
+.skip-link:focus {
+  @apply not-sr-only fixed left-4 top-4 z-50 rounded-md bg-navy-900 px-4 py-2 text-sm text-white;
+}

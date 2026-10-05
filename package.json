@@ -1,0 +1,52 @@
+{
+  "name": "centro-sugbo-eagles-club-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Centro Sugbo Eagles Club Members Portal - full-stack club management system",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "node scripts/run-prisma.js generate && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "prisma:generate": "node scripts/run-prisma.js generate",
+    "db:push": "node scripts/run-prisma.js db push",
+    "db:migrate": "node scripts/run-prisma.js migrate dev",
+    "db:deploy": "node scripts/run-prisma.js migrate deploy",
+    "db:studio": "node scripts/run-prisma.js studio",
+    "db:seed": "node --env-file-if-exists=.env.local prisma/seed.js",
+    "db:reset": "node scripts/run-prisma.js migrate reset --force",
+    "db:diff": "node scripts/generate-initial-migration.js",
+    "postinstall": "node scripts/run-prisma.js generate"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "bcryptjs": "2.4.3",
+    "clsx": "2.1.1",
+    "date-fns": "4.1.0",
+    "lucide-react": "0.469.0",
+    "next": "15.5.27",
+    "next-auth": "5.0.0-beta.32",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "recharts": "2.15.0",
+    "tailwind-merge": "2.6.0",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.3.3",
+    "@electric-sql/pglite-socket": "0.0.8",
+    "autoprefixer": "10.4.20",
+    "eslint": "8.57.1",
+    "eslint-config-next": "15.5.27",
+    "postcss": "8.4.49",
+    "prisma": "6.19.3",
+    "tailwindcss": "3.4.17",
+    "vitest": "3.2.4"
+  }
+}
