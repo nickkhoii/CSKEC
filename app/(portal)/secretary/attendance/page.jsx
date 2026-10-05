@@ -51,7 +51,12 @@ export default async function SecretaryAttendancePage({ searchParams }) {
       : {}),
   };
 
-  const [total, requests, records, canRollCall, rollCallActivities, rollCallMemberRows] =
+  // Resolve the roll-call permission BEFORE the query below: referencing
+  // `canRollCall` inside the same destructuring statement that declares it hits
+  // the temporal dead zone and throws a ReferenceError.
+  const canRollCall = canRecordManual;
+
+  const [total, requests, records, rollCallActivities, rollCallMemberRows] =
     await Promise.all([
     prisma.attendanceRequest.count({ where }),
     prisma.attendanceRequest.findMany({
@@ -85,7 +90,6 @@ export default async function SecretaryAttendancePage({ searchParams }) {
         approvedBy: { select: { fullName: true } },
       },
     }),
-    canRecordManual,
     canRollCall
       ? prisma.activity.findMany({
           where: { requiresAttendance: true },

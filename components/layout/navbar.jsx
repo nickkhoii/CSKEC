@@ -6,6 +6,7 @@ import { Bell, LogOut, Settings, UserRound } from 'lucide-react';
 import { ROLE_LABELS } from '@/lib/constants';
 import { cn, formatRelative } from '@/lib/utils';
 import { Avatar } from '@/components/ui';
+import { Sidebar } from '@/components/layout/sidebar';
 import { logoutAction } from '@/actions/auth-actions';
 
 /**
@@ -213,15 +214,25 @@ function AccountMenu({ user, open, onToggle, onSignOut, pending }) {
 
 /**
  * Client shell that owns the mobile-drawer state and composes sidebar + navbar.
- * `sidebar` is a render prop so the server layout can inject the user's
- * permission-gated navigation.
+ *
+ * Both `Sidebar` and `Navbar` are Client Components, so this frame renders the
+ * sidebar itself. It deliberately does NOT accept a `sidebar` render prop: the
+ * server layout used to pass one, and React refuses to serialise a function from
+ * a Server Component to a Client Component, which crashed every portal page.
+ * Only serialisable props (user, permissions, notification rows) cross the wire.
  */
-export function AppShellFrame({ user, unreadCount, notifications, sidebar, children }) {
+export function AppShellFrame({ user, permissions, unreadCount, notifications, children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const closeMobile = () => setMobileOpen(false);
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {sidebar({ user, mobileOpen, onCloseMobile: () => setMobileOpen(false) })}
+      <Sidebar
+        user={user}
+        permissions={permissions}
+        mobileOpen={mobileOpen}
+        onCloseMobile={closeMobile}
+      />
       <div className="lg:pl-64">
         <Navbar
           user={user}

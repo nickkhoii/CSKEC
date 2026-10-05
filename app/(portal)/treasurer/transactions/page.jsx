@@ -74,7 +74,8 @@ export default async function TransactionsPage({ searchParams }) {
     cashFlowSummary(),
     canAddEntry
       ? prisma.transactionCategory.findMany({
-          where: { isActive: true },
+          // `TransactionCategory` has no `isActive` column - the flag is `isSystem`.
+          // Filtering on a non-existent field made Prisma throw and the page 500.
           orderBy: [{ type: 'asc' }, { name: 'asc' }],
           select: { id: true, name: true },
         })

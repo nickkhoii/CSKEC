@@ -1,6 +1,3 @@
-'use client';
-
-import { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -9,6 +6,17 @@ import { cn } from '@/lib/utils';
  * ---------------------------------------------------------------------------
  * Deliberately restrained: a club-management portal should feel formal and calm,
  * so components use a single subtle shadow, a 1px border and small radii.
+ *
+ * INTENTIONALLY NOT `'use client'`.
+ * These are pure, stateless presentational components with no hooks and no browser
+ * APIs, so they render correctly in both trees. Marking this file as a Client
+ * Component broke every server-rendered page: pages pass icon components
+ * (`<EmptyState icon={Megaphone} />`) and table `render` callbacks into these
+ * primitives, and React refuses to serialise a function across the RSC boundary
+ * ("Functions cannot be passed directly to Client Components").
+ *
+ * Primitives that genuinely need the browser live in their own client files:
+ * form.jsx, modal.jsx, table.jsx, toast.jsx.
  */
 
 const VARIANTS = {
@@ -32,10 +40,17 @@ const SIZES = {
   icon: 'h-9 w-9 p-0',
 };
 
-export const Button = forwardRef(function Button(
-  { className, variant = 'primary', size = 'md', type = 'button', loading = false, disabled, children, ...props },
+export function Button({
+  className,
+  variant = 'primary',
+  size = 'md',
+  type = 'button',
+  loading = false,
+  disabled,
+  children,
   ref,
-) {
+  ...props
+}) {
   return (
     <button
       ref={ref}
@@ -61,7 +76,7 @@ export const Button = forwardRef(function Button(
       {children}
     </button>
   );
-});
+}
 
 export function Card({ className, children, ...props }) {
   return (

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { PERMISSIONS } from '@/lib/rbac';
-import { can } from '@/lib/session';
+import { can, requireUserApi } from '@/lib/session';
 import { audit } from '@/lib/audit';
 import { csvResponseBody, reportFilename } from '@/lib/csv';
 import { moneyToString } from '@/lib/money';
@@ -45,7 +45,10 @@ const jsonError = (message, status) =>
   NextResponse.json({ error: message }, { status });
 
 export async function GET(request, { params }) {
-  const user = await can(PERMISSIONS.DASHBOARD_VIEW);
+  // `can()` returns a boolean, not the user record. Using it here left `user.id`,
+  // `user.name`, `user.email` and `user.role` undefined, which broke the per-user
+  // rate-limit bucket and wrote "undefined" into every audit entry.
+  const user = await requireUserApi();
   if (!user) return jsonError('Authentication required.', 401);
 
   const { report } = await params;

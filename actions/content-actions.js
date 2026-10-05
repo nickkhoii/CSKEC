@@ -243,6 +243,7 @@ export async function createNoticeAction(_prevState, formData) {
     title: str(formData, 'title'),
     content: str(formData, 'content'),
     noticeDate: str(formData, 'noticeDate'),
+    expiryDate: str(formData, 'expiryDate'),
     priority: str(formData, 'priority') ?? 'NORMAL',
     audience: str(formData, 'audience') ?? 'ALL_MEMBERS',
     status: str(formData, 'status') ?? 'DRAFT',
@@ -257,6 +258,9 @@ export async function createNoticeAction(_prevState, formData) {
         title: data.title,
         content: data.content,
         noticeDate: new Date(data.noticeDate),
+        // `optionalDateField` yields a "YYYY-MM-DD" string; the column is a
+        // `@db.Date`, and Prisma rejects a bare date string, so convert it here.
+        expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
         priority: data.priority,
         audience: data.audience,
         status: data.status,
@@ -300,6 +304,7 @@ export async function updateNoticeAction(_prevState, formData) {
     title: str(formData, 'title'),
     content: str(formData, 'content'),
     noticeDate: str(formData, 'noticeDate'),
+    expiryDate: str(formData, 'expiryDate'),
     priority: str(formData, 'priority') ?? 'NORMAL',
     audience: str(formData, 'audience') ?? 'ALL_MEMBERS',
     status: str(formData, 'status') ?? 'DRAFT',
@@ -321,6 +326,7 @@ export async function updateNoticeAction(_prevState, formData) {
         title: data.title,
         content: data.content,
         noticeDate: new Date(data.noticeDate),
+        expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
         priority: data.priority,
         audience: data.audience,
         status: data.status,

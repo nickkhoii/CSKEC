@@ -40,6 +40,7 @@ export default async function AttendancePage() {
         hoursCredited: true,
         approvedAt: true,
         source: true,
+        approvedBy: { select: { fullName: true } },
         activity: {
           select: {
             id: true,
@@ -47,7 +48,6 @@ export default async function AttendancePage() {
             type: true,
             startsAt: true,
             category: true,
-            approvedBy: { select: { fullName: true } },
           },
         },
       },
@@ -271,7 +271,7 @@ function AttendanceHistory({ rows }) {
             <TD align="right" className="text-xs tabular-nums">
               {record.hoursCredited ? Number(record.hoursCredited).toFixed(2) : '\u2014'}
             </TD>
-            <TD className="text-xs text-ink-soft">{record.activity.approvedBy?.fullName ?? '\u2014'}</TD>
+            <TD className="text-xs text-ink-soft">{record.approvedBy?.fullName ?? '\u2014'}</TD>
           </TR>
         ))}
       </TBody>

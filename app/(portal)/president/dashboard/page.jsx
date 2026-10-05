@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import {
   BarChart3,
   CalendarClock,
@@ -100,9 +101,9 @@ export default async function PresidentDashboardPage() {
       <DataPanel
         title="Recent club updates"
         action={
-          <a href="/updates" className="text-xs font-medium text-navy-700 hover:underline">
+          <Link href="/updates" className="text-xs font-medium text-navy-700 hover:underline">
             View all
-          </a>
+          </Link>
         }
         rows={recentUpdates}
         emptyIcon={Megaphone}
@@ -111,7 +112,7 @@ export default async function PresidentDashboardPage() {
         <ul className="divide-y divide-slate-100">
           {recentUpdates.map((post) => (
             <li key={post.id}>
-              <a href={`/updates/${post.id}`} className="block px-5 py-3 hover:bg-slate-50">
+              <Link href={`/updates/${post.id}`} className="block px-5 py-3 hover:bg-slate-50">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={POST_CATEGORY_BADGE[post.category]}>
                     {POST_CATEGORY_SHORT[post.category]}
@@ -121,7 +122,7 @@ export default async function PresidentDashboardPage() {
                   </span>
                 </div>
                 <p className="mt-1 text-sm font-medium text-ink">{truncate(post.title, 80)}</p>
-              </a>
+              </Link>
             </li>
           ))}
         </ul>
@@ -137,9 +138,9 @@ function OfficersPanel({ officers }) {
         title="Current club officers"
         description="Officer terms are retained permanently in the register."
         action={
-          <a href="/president/officers" className="text-xs font-medium text-navy-700 hover:underline">
+          <Link href="/president/officers" className="text-xs font-medium text-navy-700 hover:underline">
             Manage
-          </a>
+          </Link>
         }
       />
       <CardBody className="p-0">

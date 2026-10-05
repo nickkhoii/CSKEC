@@ -319,6 +319,7 @@ async function seedDemoData() {
 
   const adminUser = await prisma.user.findUnique({ where: { email: 'admin@csec.local' } });
   const createdUsers = [];
+  const createdMembers = [];
 
   for (const entry of DEMO_USERS) {
     const role = roles[entry.key];
@@ -368,31 +369,39 @@ async function seedDemoData() {
     await prisma.user.update({ where: { id: user.id }, data: { memberId: member.id } });
     entry.memberId = member.id;
     entry.userId = user.id;
+    createdMembers.push({ ...member, fullName: entry.fullName });
   }
 
-  await seedOfficers(createdUsers);
-  await seedContent(createdUsers);
+  await seedOfficers(createdUsers, createdMembers);
+  await seedContent(createdUsers, createdMembers);
   await seedFinance(createdUsers);
   await seedAttendance(createdUsers);
 }
 
-async function seedOfficers(users) {
+/**
+ * Officers.
+ *
+ * NOTE: `OfficerAssignment.memberId` is a foreign key to **Member**, while
+ * `appointedById` is a foreign key to **User**. The two ids are different rows,
+ * so both collections are needed here.
+ */
+async function seedOfficers(users, members) {
   const positions = Object.fromEntries(
     (await prisma.officerPosition.findMany()).map((p) => [p.code, p]),
   );
-  const president = users.find((u) => u.fullName === 'Miguel Santos');
-  const secretary = users.find((u) => u.fullName === 'Luisa Fernandez');
-  const treasurer = users.find((u) => u.fullName === 'Rafael Bautista');
   const admin = users.find((u) => u.fullName === 'Ana Dela Cruz');
+
+  // Officer positions are filled by the linked *Member* record, not the user row.
+  const officerMember = (fullName) => members.find((m) => m.fullName === fullName)?.id;
 
   const assignments = [
     {
-      memberId: president?.id,
+      memberId: officerMember('Miguel Santos'),
       code: 'PRESIDENT',
       notes: 'Elected at the 2024 General Assembly.',
     },
-    { memberId: secretary?.id, code: 'SECRETARY', notes: null },
-    { memberId: treasurer?.id, code: 'TREASURER', notes: null },
+    { memberId: officerMember('Luisa Fernandez'), code: 'SECRETARY', notes: null },
+    { memberId: officerMember('Rafael Bautista'), code: 'TREASURER', notes: null },
   ];
 
   for (const item of assignments) {
@@ -426,8 +435,12 @@ function dateOnly(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-async function seedContent(users) {
+async function seedContent(users, members) {
   const secretary = users.find((u) => u.fullName === 'Luisa Fernandez');
+  const presidentUser = users.find((u) => u.fullName === 'Miguel Santos');
+  // `Meeting.presidingOfficerId` points at Member, `MeetingMinute.approvedById`
+  // points at User - they must not be swapped.
+  const presidentMember = members.find((m) => m.fullName === 'Miguel Santos');
 
   const post = (data) =>
     prisma.post.upsert({ where: { slug: data.slug }, create: data, update: {} });
@@ -630,10 +643,13 @@ async function seedActivities(secretary) {
 
 await seedNotices(secretary);
   await seedActivities(secretary);
-  await seedMeetings(secretary, users.find((u) => u.fullName === 'Miguel Santos'));
+  await seedMeetings(secretary, presidentUser, presidentMember);
 }
 
-async function seedMeetings(secretary, president) {
+async function seedMeetings(secretary, presidentUser, presidentMember) {
+  // `presidingOfficerId` references Member; `approvedById` references User.
+  const presidingOfficerId = presidentMember?.id ?? null;
+  const approvedById = presidentUser?.id ?? null;
   const meeting = await prisma.meeting.upsert({
     where: { id: 'seed-meeting-gmm-1' },
     create: {
@@ -647,7 +663,7 @@ async function seedMeetings(secretary, president) {
       description: 'Quarterly assembly with committee reports and open forum.',
       status: 'COMPLETED',
       activityId: 'seed-activity-gmm-1',
-      presidingOfficerId: president?.id ?? null,
+      presidingOfficerId,
       createdById: secretary.id,
     },
     update: {},
@@ -680,7 +696,7 @@ async function seedMeetings(secretary, president) {
       status: 'APPROVED',
       preparedById: secretary.id,
       preparedByName: 'Luisa Fernandez',
-      approvedById: president?.id ?? null,
+      approvedById,
       approvedByName: 'Miguel Santos',
       approvedAt: daysFromNow(-28),
     },
@@ -701,7 +717,7 @@ async function seedMeetings(secretary, president) {
       description: 'Quarterly assembly. Members are expected to submit attendance.',
       status: 'SCHEDULED',
       activityId: 'seed-activity-upcoming-gmm',
-      presidingOfficerId: president?.id ?? null,
+      presidingOfficerId,
       createdById: secretary.id,
     },
     update: {},
@@ -803,7 +819,9 @@ async function seedFinance(users) {
         dedupeKey: dedupeKey({ type: 'MONTHLY_DUES', memberId: member.id, ...oldest }),
       },
     });
-    if (!obligation || obligation.amountPaid !== '0.00') continue;
+    // `amountPaid` is a Prisma Decimal object, never a string - comparing it with
+    // `!== '0.00'` is always true and would skip every member, so normalise first.
+    if (!obligation || Number(obligation.amountPaid) !== 0) continue;
 
     const paymentNumber = `PAY-2024-${String(seq).padStart(4, '0')}`;
     const transactionNumber = `TXN-2024-${String(seq).padStart(4, '0')}`;
@@ -942,7 +960,7 @@ async function seedFinance(users) {
     });
 
     // Reflect the pending submission on the obligation's status.
-    if (obligation && obligation.amountPaid === '0.00') {
+    if (obligation && Number(obligation.amountPaid) === 0) {
       await prisma.financialObligation.update({
         where: { id: obligation.id },
         data: { status: 'PENDING_VERIFICATION' },
@@ -1061,16 +1079,16 @@ function printDemoCredentials() {
 }
 
 async function main() {
-  console.log('[seed] starting…');
+  console.log('[seed] startingâ€¦');
 
   const roleCount = await seedRoles();
-  console.log(`[seed] roles ✔ (${roleCount})`);
+  console.log(`[seed] roles âœ” (${roleCount})`);
 
   await seedSettings();
-  console.log('[seed] settings ✔');
+  console.log('[seed] settings âœ”');
 
   await seedReferenceData();
-  console.log('[seed] reference data ✔');
+  console.log('[seed] reference data âœ”');
 
   if (!SHOULD_SEED_DEMO) {
     console.log('[seed] SEED_DEMO_DATA not enabled - skipping demo accounts.');
@@ -1081,7 +1099,7 @@ async function main() {
     );
   } else {
     await seedDemoData();
-    console.log('[seed] demo accounts & records ✔');
+    console.log('[seed] demo accounts & records âœ”');
     printDemoCredentials();
   }
 

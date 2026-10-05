@@ -22,6 +22,7 @@
     "db:seed": "node --env-file-if-exists=.env.local prisma/seed.js",
     "db:reset": "node scripts/run-prisma.js migrate reset --force",
     "db:diff": "node scripts/generate-initial-migration.js",
+    "db:setup": "npm run db:deploy && npm run db:seed",
     "postinstall": "node scripts/run-prisma.js generate"
   },
   "dependencies": {

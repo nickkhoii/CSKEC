@@ -444,6 +444,8 @@ model Notice {
   title      String
   content    String            @db.Text
   noticeDate DateTime          @db.Date
+  /// Optional end date for time-bound notices (e.g. dues deadlines).
+  expiryDate DateTime?          @db.Date
   priority   NoticePriority    @default(NORMAL)
   audience   NoticeAudience    @default(ALL_MEMBERS)
   status     PublicationStatus @default(DRAFT)
@@ -560,7 +562,12 @@ model AttendanceRequest {
 
   /// Business rule: exactly one attendance request per member per activity.
   /// A rejected request is re-opened (status -> PENDING) instead of duplicated.
-  @@unique([activityId, memberId], name: "uniq_attendance_request")
+  ///
+  /// NOTE: no explicit `name:` here. Prisma derives the client accessor from the
+  /// field list (`activityId_memberId`), which is what lib/attendance.js and the
+  /// seed script use, and it matches the index name in the applied migration.
+  /// Adding a `name:` would silently rename the accessor and break every lookup.
+  @@unique([activityId, memberId])
   @@index([status, submittedAt])
   @@index([memberId, status])
 }
@@ -588,8 +595,9 @@ model AttendanceRecord {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  /// One official record per member per activity.
-  @@unique([activityId, memberId], name: "uniq_attendance_record")
+  /// One official record per member per activity. See the note on
+  /// AttendanceRequest above about not naming this compound unique.
+  @@unique([activityId, memberId])
   @@index([memberId, status])
   @@index([activityId, status])
 }
@@ -671,7 +679,8 @@ model PaymentSubmission {
   updatedAt DateTime @updatedAt
 
   /// A member cannot submit the same bank reference twice.
-  @@unique([memberId, referenceNumber], name: "uniq_submission_reference")
+  /// See the note on AttendanceRequest above about not naming this compound unique.
+  @@unique([memberId, referenceNumber])
   @@index([status, submittedAt])
   @@index([memberId, status])
 }

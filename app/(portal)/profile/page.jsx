@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
 import { requireUser, getCurrentMember } from '@/lib/session';
@@ -74,9 +75,9 @@ export default async function ProfilePage() {
               <p className="mt-4 text-[11px] text-ink-muted">
                 Name, email and membership status are edited by the Secretary. Contact details
                 are editable from your{' '}
-                <a href="/settings" className="font-medium text-navy-700 hover:underline">
+                <Link href="/settings" className="font-medium text-navy-700 hover:underline">
                   settings page
-                </a>
+                </Link>
                 .
               </p>
             </CardBody>

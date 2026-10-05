@@ -255,11 +255,40 @@ Key decisions:
 git clone https://github.com/<org>/centro-sugbo-eagles-portal.git
 cd centro-sugbo-eagles-portal
 npm install
-cp .env.example .env.local      # then fill in your Neon credentials
+cp .env.example .env.local      # then point DATABASE_URL at your database
 ```
 
 `npm install` runs `prisma generate` automatically via `postinstall`, so the
 Prisma Client is ready before you run any command.
+
+### Quick start with a local PostgreSQL
+
+You do **not** need Neon to run the portal locally — any PostgreSQL 14+ server
+works. With a local server listening on `127.0.0.1:5432`:
+
+```bash
+# 1. create the role + database once (as a postgres superuser)
+psql -U postgres -c "CREATE ROLE csec LOGIN PASSWORD 'csec_dev_pw_2024';"
+psql -U postgres -c "CREATE DATABASE csec_portal OWNER csec;"
+
+# 2. put the connection string in .env.local
+#    DATABASE_URL="postgresql://csec:csec_dev_pw_2024@127.0.0.1:5432/csec_portal?schema=public"
+#    DIRECT_URL="postgresql://csec:csec_dev_pw_2024@127.0.0.1:5432/csec_portal?schema=public"
+
+# 3. create the schema and load demo data
+npm run db:setup        # = db:deploy + db:seed
+
+# 4. run it
+npm run dev             # http://localhost:3000
+```
+
+Sign in with any seeded account using the shared password
+(`ChangeMe!2024` unless you changed `SEED_DEFAULT_PASSWORD`) — see
+[Demo credentials](#development-only-demo-credentials).
+
+> `npm run db:migrate` (which generates migrations) additionally needs a role
+> with the `CREATEDB` attribute so Prisma can spin up its shadow database:
+> `ALTER ROLE csec CREATEDB;`. `npm run db:deploy` does not.
 
 ---
 
@@ -270,11 +299,12 @@ every key with no real values in it.
 
 | Variable | Required | Purpose |
 |---|:---:|---|
-| `DATABASE_URL` | ✅ | Pooled Neon connection string used at runtime |
+| `DATABASE_URL` | ✅ | PostgreSQL connection string used at runtime |
 | `DIRECT_URL` | recommended | Direct (un-pooled) URL used by migrations; falls back to `DATABASE_URL` |
 | `AUTH_SECRET` | ✅ | Signs/encrypts the session JWT. Generate with `npx auth secret` |
 | `AUTH_URL` | recommended | Canonical auth origin (e.g. `https://portal.example.com`) |
 | `AUTH_TRUST_HOST` | recommended | `true` behind a proxy such as Vercel |
+| `AUTH_USE_SECURE_COOKIES` | optional | Forces the `Secure` cookie flag on/off. Defaults to `true` only when `NEXT_PUBLIC_APP_URL`/`AUTH_URL` is an `https://` URL, so `npm start` over plain `http://localhost` can sign in |
 | `NEXT_PUBLIC_APP_URL` | recommended | Absolute base URL used in links |
 | `LOGIN_MAX_FAILED_ATTEMPTS` | optional | Failed logins before lockout (default 5) |
 | `LOGIN_LOCKOUT_MINUTES` | optional | Lockout duration (default 15) |
@@ -422,7 +452,7 @@ npm run test:watch         # watch mode
 npm run test:ui            # Vitest UI
 ```
 
-**What is covered (94 tests, no database required):**
+**What is covered (138 tests, no database required):**
 
 | Suite | Focus |
 |---|---|
@@ -430,11 +460,14 @@ npm run test:ui            # Vitest UI
 | `tests/money.test.js` | Decimal coercion; half-up rounding; no float drift (`0.10 + 0.20`); balances never negative; payment clamping; obligation status derivation (PAID / WAIVED / PENDING / PARTIAL / OVERDUE / UNPAID); delinquency; progress percentages |
 | `tests/business-rules.test.js` | Attendance request eligibility (duplicates, rejection re-open, window, unpublished); obligation dedupe keys; CSV escaping + **spreadsheet formula-injection defence**; member-ID format; audit metadata scrubbing; pagination clamps; **open-redirect blocking**; slug/email normalisation |
 | `tests/validation.test.js` | Email/money/date/password rules; member encoding; payment submission (no future dates, dues must name an obligation); approval decisions; dues generation; ledger entries; user administration; error shaping |
+| `tests/client-components.test.js` | No `'use client'` file touches a browser-only global (`window`, `document`, `localStorage`, …) at render depth. A client component still renders on the server for the first HTML, so such a reference 500s the whole page |
+| `tests/routes.test.js` | Every internal `href` / `action` resolves to a real page or API route |
 
 These suites are the fast safety net for the rules that matter most, and they
 caught several genuine bugs during development (Decimal method names that do not
-exist on Prisma's Decimal, an email regex that accepted `a@b..com`, and a Zod
-`.refine()` + `.extend()` incompatibility).
+exist on Prisma's Decimal, an email regex that accepted `a@b..com`, a
+`window.prompt` called during render, and 14 internal `<a href>` tags that
+failed `next build` lint).
 
 ### Integration tests
 
@@ -442,14 +475,55 @@ Workflow tests needing real PostgreSQL run when `TEST_DATABASE_URL` is set and
 are skipped otherwise, so `npm test` stays useful without a database:
 
 ```bash
+# A disposable, already-migrated database. The suite TRUNCATEs every table.
+createdb csec_test
+DATABASE_URL="postgresql://user:pass@localhost:5432/csec_test" npx prisma migrate deploy
 TEST_DATABASE_URL="postgresql://user:pass@localhost:5432/csec_test" npm test
 ```
 
-`tests/setup.js` documents the harness contract. With a disposable database
-available, the following belong in that tier: attendance submission + approval +
-duplicate prevention, payment approval updating balances exactly once,
-self-approval refusal, deactivation blocking sign-in, and member-encoding
-uniqueness.
+`tests/integration/actions.test.js` drives the **real server actions** against
+that database. Only the Next.js edges are stubbed (`@/auth`, `next/cache`,
+`next/headers`, `next/navigation`); Prisma, the domain services, Zod validation
+and the audit writer are the production ones. Each test signs in as a different
+role, so the same suite proves both the happy path and the refusal.
+
+| Area | Proves |
+|---|---|
+| Attendance | member submit → Secretary approve writes the attendance record; duplicate submit refused; Treasurer cannot approve; the requester cannot approve their own request; manual roll call |
+| Payments | submit with a real proof-of-payment upload → Treasurer approval creates exactly one `Payment`, settles the obligation to `PAID` with a zero balance; rejection leaves no `Payment`; a member cannot pay someone else's obligation or verify their own |
+| Ledger | income entry posts; void requires a ≥5-character reason, keeps the row and records it; future dates refused; members cannot post |
+| Notices & posts | create/update/publish with an expiry date; expiry before the notice date refused; members cannot publish |
+| Officers | appoint → end term keeps the append-only history; a second concurrent holder of an office is refused |
+| Members, profile, settings | Secretary creates a member (auto member-ID, duplicate e-mail is a friendly failure); member updates their own profile; settings only by the System Administrator; user create + deactivate |
+| Audit | rows are written for sensitive actions and never contain passwords or secrets |
+
+This tier earned its keep immediately: it surfaced a notice `expiryDate` that
+could never be saved (a `YYYY-MM-DD` string passed to a `@db.Date` column), and
+a `checkbox()` Zod helper that rejected `null` — which broke *every* form with an
+unticked box (post "pin", member "create account", "must change password").
+
+### Authenticated route sweep
+
+`scripts/smoke.ps1` signs in over the real Auth.js credentials endpoint and then
+GETs a list of routes with that session, printing the status and body length of
+each. It is how a page that renders a 500 in production gets caught before
+deployment:
+
+```powershell
+npm run build
+npm run start                       # in another shell
+
+powershell -File scripts\smoke.ps1 -Email 'treasurer@csec.local' `
+  -Password 'ChangeMe!2024' `
+  -RouteList '/treasurer/dashboard,/treasurer/transactions,/reports/cash-flow'
+```
+
+Any line reading `EXCEPTION` or a 4xx/5xx is a failure; the script ends with
+`FAILED_COUNT n`. Run it per role — `member@`, `secretary@`, `treasurer@`,
+`president@` and `admin@csec.local` — because most page-level RBAC bugs only
+appear for the role that is *not* allowed.
+
+---
 
 ---
 
@@ -612,14 +686,13 @@ in a portal of this shape, and hardest to spot by eye:
 
 ### Not yet written
 
-- **Integration test tier.** `tests/setup.js` already exposes the
-  `TEST_DATABASE_URL` harness and the skip condition, but the database-backed
-  workflow suites (approve to ledger posting, approve to attendance record,
-  officer succession) are not written. Set `TEST_DATABASE_URL` and add them under
-  `tests/integration/` to exercise the transactional services directly.
 - **REST read endpoints** beyond `/api/health` and `/api/reports/[report]`. The
   portal is server-rendered and uses server actions; JSON endpoints are only
   needed if an external client is added later.
+- **Browser-level end-to-end tests.** The server actions are covered against a
+  real database, and the pages are swept with authenticated HTTP requests, but
+  no tool drives a real browser. A Playwright pass over the sign-in → submit →
+  approve journeys would close that last gap.
 
 ### Manual configuration still required
 

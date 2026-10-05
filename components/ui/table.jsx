@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -10,6 +8,12 @@ import { cn } from '@/lib/utils';
  * ---------------------------------------------------------------------------
  * Server-driven: the page owns the query string, so lists stay paginated on the
  * server instead of shipping thousands of rows to the browser.
+ *
+ * INTENTIONALLY NOT `'use client'`.
+ * These are static markup helpers with no hooks and no browser APIs.
+ * `<Pagination buildHref={...} />` receives a function created in the server
+ * page, which React cannot serialise into a Client Component - marking this file
+ * as client made every paginated list throw a 500.
  */
 
 export function Table({ className, children, ...props }) {

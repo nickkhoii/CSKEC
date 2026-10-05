@@ -48,10 +48,17 @@ const optionalEnum = (values) =>
       message: 'Select a valid option.',
     });
 
-/** `true` for checkboxes, which post as "on" rather than a boolean. */
+/**
+ * `true` for checkboxes, which post as "on" rather than a boolean.
+ *
+ * An unticked checkbox is simply absent from the form body, and the actions
+ * read every field through `str()`, which returns `null` for a missing value.
+ * Accepting `null` / `undefined` here is what makes the *unchecked* case work;
+ * without it every form with an unticked box fails with "Invalid input".
+ */
 const checkbox = () =>
   z
-    .union([z.boolean(), z.string()])
+    .union([z.boolean(), z.string(), z.null(), z.undefined()])
     .transform((value) => value === true || value === 'true' || value === 'on')
     .default(false);
 
@@ -199,16 +206,34 @@ export const updateActivitySchema = z
 
 // ============================== NOTICES ====================================
 
-export const noticeSchema = z.object({
+const noticeFields = {
   title: requiredText('Title', { max: 200 }),
   content: requiredText('Content', { min: 5, max: 10000 }),
   noticeDate: dateField('Notice date'),
+  expiryDate: optionalDateField('Expiry date'),
   priority: enumOf(NOTICE_PRIORITIES, 'priority').default('NORMAL'),
   audience: enumOf(NOTICE_AUDIENCES, 'audience').default('ALL_MEMBERS'),
   status: enumOf(PUBLICATION_STATUSES, 'publication status').default('DRAFT'),
-});
+};
 
-export const updateNoticeSchema = noticeSchema.extend({ id: cuidField('Notice') });
+/**
+ * A notice that expires before it is even issued can never be shown, so it is
+ * refused rather than silently stored. Applied to both the create and the
+ * update schema, which is why the field map is shared above: `.refine()` turns
+ * a schema into a ZodEffects, and that has no `.extend()`.
+ */
+const noticeWindow = (data) => !data.expiryDate || data.expiryDate >= data.noticeDate;
+
+const noticeWindowIssue = {
+  path: ['expiryDate'],
+  message: 'The expiry date cannot be before the notice date.',
+};
+
+export const noticeSchema = z.object(noticeFields).refine(noticeWindow, noticeWindowIssue);
+
+export const updateNoticeSchema = z
+  .object({ ...noticeFields, id: cuidField('Notice') })
+  .refine(noticeWindow, noticeWindowIssue);
 
 // ============================== MEETINGS / MINUTES ========================
 

@@ -15,16 +15,27 @@ import { Avatar } from '@/components/ui';
  * ---------------------------------------------------------------------------
  * Sections are filtered by permission on the client for presentation only. Every
  * linked page independently re-authorises the request on the server.
+ *
+ * IMPORTANT: this component receives a plain `permissions` string array rather
+ * than a predicate function. It is rendered from a Server Component, and React
+ * cannot serialise a function across the RSC boundary - passing `canFn` here
+ * made every portal page fail with a 500. The predicate is rebuilt locally.
  */
+
+/** Rebuilds the `canFn` predicate expected by buildNavigation. */
+function permissionChecker(permissions) {
+  const granted = new Set(Array.isArray(permissions) ? permissions : []);
+  return (permission) => Boolean(permission) && granted.has(permission);
+}
 
 function isActive(pathname, href) {
   if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/';
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Sidebar({ user, canFn, mobileOpen, onCloseMobile }) {
+export function Sidebar({ user, permissions, mobileOpen, onCloseMobile }) {
   const pathname = usePathname();
-  const sections = buildNavigation(user.role, canFn);
+  const sections = buildNavigation(user.role, permissionChecker(permissions));
   const [collapsed, setCollapsed] = useState({});
 
   return (

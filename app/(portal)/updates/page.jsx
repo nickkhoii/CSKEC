@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Megaphone } from 'lucide-react';
 import { requirePermission, PERMISSIONS } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
@@ -99,7 +100,7 @@ export default async function UpdatesPage({ searchParams }) {
         <ul className="divide-y divide-slate-100">
           {posts.map((post) => (
             <li key={post.id}>
-              <a href={`/updates/${post.id}`} className="block px-5 py-4 transition-colors hover:bg-slate-50">
+              <Link href={`/updates/${post.id}`} className="block px-5 py-4 transition-colors hover:bg-slate-50">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={POST_CATEGORY_BADGE[post.category]}>
                     {POST_CATEGORY_SHORT[post.category]}
@@ -119,7 +120,7 @@ export default async function UpdatesPage({ searchParams }) {
                   {post.eventDate ? formatDateTime(post.eventDate) : null}
                   {post.venue ? ` \u00b7 ${post.venue}` : ''}
                 </p>
-              </a>
+              </Link>
             </li>
           ))}
         </ul>

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import {
   AlertTriangle,
   BarChart3,
@@ -184,12 +185,12 @@ function PendingPaymentsPanel({ rows }) {
       emptyTitle="Nothing to verify"
       emptyDescription="All submitted payments have been processed."
       action={
-        <a
+        <Link
           href="/treasurer/payments?status=PENDING_VERIFICATION"
           className="text-xs font-medium text-navy-700 hover:underline"
         >
           Review all
-        </a>
+        </Link>
       }
     >
       <SimpleTable
@@ -242,9 +243,9 @@ function RecentLedgerPanel({ rows }) {
     <DataPanel
       title="Recent ledger entries"
       action={
-        <a href="/treasurer/transactions" className="text-xs font-medium text-navy-700 hover:underline">
+        <Link href="/treasurer/transactions" className="text-xs font-medium text-navy-700 hover:underline">
           View all
-        </a>
+        </Link>
       }
       rows={rows}
       emptyIcon={FileSpreadsheet}

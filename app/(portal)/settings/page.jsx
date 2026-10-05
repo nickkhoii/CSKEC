@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Building2, ShieldCheck, UserCog } from 'lucide-react';
 import { requireUser, getCurrentMember } from '@/lib/session';
 import {
@@ -48,9 +49,9 @@ export default async function SettingsPage() {
       {user.mustChangePassword ? (
         <Alert tone="warning" title="Password change required">
           You are signed in with a temporary password. Change it on your{' '}
-          <a href="/profile" className="font-medium underline">
+          <Link href="/profile" className="font-medium underline">
             profile page
-          </a>
+          </Link>
           .
         </Alert>
       ) : null}
@@ -138,9 +139,9 @@ function AccountCard({ user, member }) {
         </dl>
         <p className="mt-4 border-t border-slate-200 pt-3 text-[11px] text-ink-muted">
           To change your name, email or password, use the{' '}
-          <a href="/profile" className="font-medium text-navy-700 hover:underline">
+          <Link href="/profile" className="font-medium text-navy-700 hover:underline">
             profile page
-          </a>
+          </Link>
           .
         </p>
       </CardBody>

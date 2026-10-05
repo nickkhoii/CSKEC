@@ -24,6 +24,33 @@ import { permissionsForRole } from '@/lib/rbac';
 const SESSION_HOURS = Number(process.env.SESSION_MAX_AGE_HOURS ?? 8);
 const MAX_AGE_SECONDS = Math.max(1, SESSION_HOURS) * 60 * 60;
 
+/**
+ * Should the session/CSRF cookies carry the `Secure` flag?
+ *
+ * Keying this off `NODE_ENV === 'production'` (the Auth.js default) breaks the
+ * documented `npm run build && npm start` workflow: the production build is then
+ * served over plain `http://localhost:3000`, the browser refuses to store or
+ * return a `Secure` cookie, and every sign-in dies with `MissingCSRF`.
+ *
+ * The real question is whether the app is actually served over HTTPS, so we ask
+ * the configured public URL instead. Vercel/Neon deployments set an https URL
+ * and keep the flag on; a local http URL turns it off. `AUTH_USE_SECURE_COOKIES`
+ * is an explicit override for unusual deployments.
+ */
+function resolveUseSecureCookies() {
+  const override = process.env.AUTH_USE_SECURE_COOKIES;
+  if (override !== undefined && override !== '') return override === 'true';
+
+  const appUrl = (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.AUTH_URL ||
+    ''
+  ).trim();
+  return appUrl.startsWith('https://');
+}
+
+const USE_SECURE_COOKIES = resolveUseSecureCookies();
+
 /** Route prefixes that require a signed-in user. */
 export const PROTECTED_PREFIXES = [
   '/dashboard',
@@ -72,7 +99,7 @@ export const authConfig = {
     signIn: '/login',
     error: '/login',
   },
-  useSecureCookies: process.env.NODE_ENV === 'production',
+  useSecureCookies: USE_SECURE_COOKIES,
   providers: [
     Credentials({
       id: 'credentials',

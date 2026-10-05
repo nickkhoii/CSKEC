@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import {
   Bell,
   CalendarCheck,
@@ -151,9 +152,9 @@ function PendingAttendancePanel({ rows }) {
       emptyTitle="Nothing to review"
       emptyDescription="All attendance requests have been processed."
       action={
-        <a href="/secretary/attendance?status=PENDING" className="text-xs font-medium text-navy-700 hover:underline">
+        <Link href="/secretary/attendance?status=PENDING" className="text-xs font-medium text-navy-700 hover:underline">
           Review all
-        </a>
+        </Link>
       }
     >
       <SimpleTable
@@ -229,9 +230,9 @@ function RecentUpdatesPanel({ rows }) {
       <CardHeader
         title="Recent club updates"
         action={
-          <a href="/secretary/posts" className="text-xs font-medium text-navy-700 hover:underline">
+          <Link href="/secretary/posts" className="text-xs font-medium text-navy-700 hover:underline">
             Manage
-          </a>
+          </Link>
         }
       />
       <CardBody className="p-0">
@@ -241,7 +242,7 @@ function RecentUpdatesPanel({ rows }) {
           <ul className="divide-y divide-slate-100">
             {rows.map((post) => (
               <li key={post.id}>
-                <a href={`/updates/${post.id}`} className="block px-5 py-3 hover:bg-slate-50">
+                <Link href={`/updates/${post.id}`} className="block px-5 py-3 hover:bg-slate-50">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge tone={POST_CATEGORY_BADGE[post.category]}>
                       {POST_CATEGORY_SHORT[post.category]}
@@ -256,7 +257,7 @@ function RecentUpdatesPanel({ rows }) {
                     </span>
                   </div>
                   <p className="mt-1 text-sm font-medium text-ink">{truncate(post.title, 70)}</p>
-                </a>
+                </Link>
               </li>
             ))}
           </ul>
@@ -272,9 +273,9 @@ function UrgentNoticesPanel({ rows }) {
       <CardHeader
         title="Important &amp; urgent notices"
         action={
-          <a href="/secretary/notices" className="text-xs font-medium text-navy-700 hover:underline">
+          <Link href="/secretary/notices" className="text-xs font-medium text-navy-700 hover:underline">
             Manage
-          </a>
+          </Link>
         }
       />
       <CardBody className="p-0">

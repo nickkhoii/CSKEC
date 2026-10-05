@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Activity, Settings, Shield, UserCog, UserCheck, UserX } from 'lucide-react';
 import { requireRole } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
@@ -141,9 +142,9 @@ export default async function AdminDashboardPage() {
           emptyIcon={Shield}
           emptyTitle="No security events yet"
           action={
-            <a href="/admin/audit" className="text-xs font-medium text-navy-700 hover:underline">
+            <Link href="/admin/audit" className="text-xs font-medium text-navy-700 hover:underline">
               View all
-            </a>
+            </Link>
           }
         >
           <AuditList rows={recentSecurity} showCategory={false} />
@@ -156,9 +157,9 @@ export default async function AdminDashboardPage() {
           emptyIcon={Activity}
           emptyTitle="No audit entries yet"
           action={
-            <a href="/admin/audit" className="text-xs font-medium text-navy-700 hover:underline">
+            <Link href="/admin/audit" className="text-xs font-medium text-navy-700 hover:underline">
               View all
-            </a>
+            </Link>
           }
         >
           <AuditList rows={recentAudit} showCategory />

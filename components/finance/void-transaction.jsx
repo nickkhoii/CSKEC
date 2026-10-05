@@ -27,7 +27,19 @@ export function VoidTransactionButton({ transactionId, disabled, disabledReason 
     );
   }
 
-  const run = (reason) => {
+  const handleClick = () => {
+    const answer = window.prompt(
+      'Reason for voiding this transaction (required and recorded in the audit log):',
+      '',
+    );
+    if (answer === null) return;
+
+    const reason = answer.trim();
+    if (reason.length < 5) {
+      toast.error('Please provide a reason of at least 5 characters.');
+      return;
+    }
+
     const formData = new FormData();
     formData.set('transactionId', transactionId);
     formData.set('reason', reason);
@@ -39,14 +51,16 @@ export function VoidTransactionButton({ transactionId, disabled, disabledReason 
     });
   };
 
-  const reason = window.prompt(
-    'Reason for voiding this transaction (required and recorded in the audit log):',
-    '',
+  return (
+    <Button
+      size="sm"
+      variant="danger"
+      loading={pending}
+      onClick={handleClick}
+      disabled={pending}
+    >
+      <Ban className="h-3.5 w-3.5" aria-hidden="true" />
+      Void
+    </Button>
   );
-  if (reason === null) return;
-  if (reason.trim().length < 5) {
-    toast.error('Please provide a reason of at least 5 characters.');
-    return;
-  }
-  run(reason.trim());
 }
