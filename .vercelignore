@@ -1,0 +1,11 @@
+node_modules
+.git
+.next
+.next-smoke
+.data
+.env
+.env.local
+.env.*.local
+passwordssss.txt
+coverage
+*.log
