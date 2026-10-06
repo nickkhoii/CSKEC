@@ -10,7 +10,7 @@
     "dev": "next dev",
     "build": "node scripts/run-prisma.js generate && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",

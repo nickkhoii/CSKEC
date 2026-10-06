@@ -663,7 +663,7 @@ passes. What remains is configuration and deployment, not features.
 | Admin module: user accounts, account deactivation, audit logs, system settings | OK |
 | Reports: member master list, cash flow, CSV export endpoint | OK |
 | `middleware.js` route gate | OK |
-| Test suite - 103 tests, all passing | OK |
+| Test suite - 156 tests (138 unit + 18 integration), all passing | OK |
 | `npm run build` - succeeds | OK |
 | Security headers + CSP in `next.config.mjs` | OK |
 

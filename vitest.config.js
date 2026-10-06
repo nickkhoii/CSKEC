@@ -18,8 +18,9 @@ export default defineConfig({
     environment: 'node',
     globals: false,
     include: ['tests/**/*.test.js'],
-    // Integration suites boot an in-process PGlite Postgres over a TCP socket;
-    // they need exclusive access and a generous timeout.
+    // Integration suites run the real server actions against a PostgreSQL
+    // database (TEST_DATABASE_URL); they truncate shared tables, so test files
+    // need exclusive access and a generous timeout.
     fileParallelism: false,
     testTimeout: 60_000,
     hookTimeout: 120_000,
