@@ -8,6 +8,7 @@ import { cn, formatRelative } from '@/lib/utils';
 import { Avatar } from '@/components/ui';
 import { Sidebar } from '@/components/layout/sidebar';
 import { logoutAction } from '@/actions/auth-actions';
+import { ClubLogo } from '@/components/club-logo';
 
 /**
  * ---------------------------------------------------------------------------
@@ -58,6 +59,7 @@ export function Navbar({ user, unreadCount = 0, notifications = [], onOpenMobile
           </button>
         ) : null}
 
+        <ClubLogo className="h-10 w-[30px]" />
         <p className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
           Centro Sugbo Eagles Club
           <span className="ml-2 hidden text-xs text-ink-muted sm:inline">Members Portal</span>

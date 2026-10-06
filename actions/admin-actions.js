@@ -12,13 +12,14 @@ import {
   unlockAccount,
 } from '@/lib/password';
 import { notifications } from '@/lib/notifications';
+import { resolveMemberId, syncMemberAccount } from '@/lib/user-members';
 import {
   createUserSchema,
   updateUserSchema,
   updateUserStatusSchema,
   adminResetPasswordSchema,
 } from '@/validations/schemas';
-import { fromZod, ok, runAction, str } from './helpers';
+import { fromZod, ok, runAction, str, passwordValue } from './helpers';
 
 /**
  * ---------------------------------------------------------------------------
@@ -44,7 +45,7 @@ export async function createUserAction(_prevState, formData) {
     email: str(formData, 'email'),
     fullName: str(formData, 'fullName'),
     role: str(formData, 'role'),
-    password: str(formData, 'password'),
+    password: passwordValue(formData, 'password'),
     status: str(formData, 'status') ?? 'ACTIVE',
     memberId: str(formData, 'memberId'),
     mustChangePassword: str(formData, 'mustChangePassword'),
@@ -57,6 +58,7 @@ export async function createUserAction(_prevState, formData) {
     async () => {
       const role = await prisma.role.findUnique({ where: { key: data.role } });
       if (!role) return { success: false, message: 'That role is not configured.' };
+      data.memberId = await resolveMemberId(prisma, data.memberId);
 
       // A member record can only be linked to one account.
       if (data.memberId) {
@@ -72,11 +74,13 @@ export async function createUserAction(_prevState, formData) {
         }
       }
 
-      const created = await prisma.user.create({
+      const passwordHash = await hashPassword(data.password);
+      const created = await prisma.$transaction(async (tx) => {
+      const account = await tx.user.create({
         data: {
           email: data.email,
           fullName: data.fullName,
-          passwordHash: await hashPassword(data.password),
+          passwordHash,
           roleId: role.id,
           status: data.status,
           memberId: data.memberId,
@@ -84,6 +88,9 @@ export async function createUserAction(_prevState, formData) {
           passwordChangedAt: new Date(),
         },
         select: { id: true, email: true },
+      });
+      await syncMemberAccount(tx, account.id, data.memberId);
+      return account;
       });
 
       await audit({
@@ -139,6 +146,7 @@ export async function updateUserAction(_prevState, formData) {
         select: { id: true, role: { select: { key: true } }, status: true },
       });
       if (!before) return { success: false, message: 'That account no longer exists.' };
+      data.memberId = await resolveMemberId(prisma, data.memberId);
 
       // Never leave the club without an active System Administrator.
       if (
@@ -171,7 +179,8 @@ export async function updateUserAction(_prevState, formData) {
       const roleChanged = before.role.key !== data.role;
       const statusChanged = before.status !== data.status;
 
-      const updated = await prisma.user.update({
+      const updated = await prisma.$transaction(async (tx) => {
+      const account = await tx.user.update({
         where: { id: data.id },
         data: {
           email: data.email,
@@ -181,9 +190,12 @@ export async function updateUserAction(_prevState, formData) {
           memberId: data.memberId,
           // A role or status change invalidates every existing session token.
           ...(roleChanged || statusChanged ? { tokenVersion: { increment: 1 } } : {}),
-          ...(statusChanged && data.status === 'DEACTIVATED' ? { deletedAt: new Date() } : {}),
+          ...(statusChanged ? { deletedAt: data.status === 'DEACTIVATED' ? new Date() : null } : {}),
         },
         select: { id: true, email: true },
+      });
+      await syncMemberAccount(tx, account.id, data.memberId);
+      return account;
       });
 
       await audit({
@@ -312,7 +324,7 @@ export async function resetUserPasswordAction(formData) {
 
   const parsed = adminResetPasswordSchema.safeParse({
     userId: str(formData, 'userId'),
-    newPassword: str(formData, 'newPassword'),
+    newPassword: passwordValue(formData, 'newPassword'),
   });
   if (!parsed.success) return fromZod(parsed.error);
 

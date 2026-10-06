@@ -5,24 +5,21 @@ import { redirect } from 'next/navigation';
 import { signIn, signOut } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { audit } from '@/lib/audit';
-import { getSessionUser, requireUserApi } from '@/lib/session';
+import { requireUserApi } from '@/lib/session';
 import { getCurrentMember } from '@/lib/session';
 import { setPassword, verifyPassword } from '@/lib/password';
 import { notifications } from '@/lib/notifications';
-import { dashboardPathForRole } from '@/lib/rbac';
 import { safeRedirectPath, normalizeEmail } from '@/lib/utils';
 import { loginSchema, changePasswordSchema, updateProfileSchema } from '@/validations/schemas';
-import { fromZod, ok, runAction, str } from './helpers';
+import { fromZod, ok, runAction, str, passwordValue } from './helpers';
 
 /** Message shown on the login screen. Deliberately vague about *why*. */
 const GENERIC_LOGIN_ERROR = 'Incorrect email or password.';
-const INACTIVE_MESSAGE =
-  'This account is not active. Please contact the club System Administrator.';
 
 export async function loginAction(_prevState, formData) {
   const parsed = loginSchema.safeParse({
     email: str(formData, 'email'),
-    password: str(formData, 'password'),
+    password: passwordValue(formData, 'password'),
     callbackUrl: str(formData, 'callbackUrl'),
   });
   if (!parsed.success) return fromZod(parsed.error);
@@ -41,19 +38,10 @@ export async function loginAction(_prevState, formData) {
     return { success: false, message: GENERIC_LOGIN_ERROR };
   }
 
-  // Re-read the session so we can route to the right dashboard.
-  const user = await getSessionUser();
-  if (!user) return { success: false, message: GENERIC_LOGIN_ERROR };
-  if (user.status !== 'ACTIVE') {
-    await signOut({ redirect: false });
-    return { success: false, message: INACTIVE_MESSAGE };
-  }
-
-  const target = safeRedirectPath(
-    callbackUrl,
-    dashboardPathForRole(user.role),
-  );
-  redirect(target);
+  // Auth.js writes the cookie to the response; the incoming request still has
+  // the old cookie. The next GET validates the fresh session and selects the
+  // correct role dashboard (or the mandatory password-change page).
+  redirect(safeRedirectPath(callbackUrl, '/dashboard'));
 }
 
 export async function logoutAction() {
@@ -62,13 +50,13 @@ export async function logoutAction() {
 }
 
 export async function changePasswordAction(_prevState, formData) {
-  const user = await requireUserApi();
+  const user = await requireUserApi({ allowPasswordChange: true });
   if (!user) return { success: false, message: 'Your session has expired. Please sign in again.' };
 
   const parsed = changePasswordSchema.safeParse({
-    currentPassword: str(formData, 'currentPassword'),
-    newPassword: str(formData, 'newPassword'),
-    confirmPassword: str(formData, 'confirmPassword'),
+    currentPassword: passwordValue(formData, 'currentPassword'),
+    newPassword: passwordValue(formData, 'newPassword'),
+    confirmPassword: passwordValue(formData, 'confirmPassword'),
   });
   if (!parsed.success) return fromZod(parsed.error);
 
@@ -92,7 +80,8 @@ export async function changePasswordAction(_prevState, formData) {
         description: 'User changed their own password.',
         user: { id: user.id, email: user.email, role: user.role },
       });
-      return ok(null, 'Password updated. Other sessions have been signed out.');
+      await signOut({ redirect: false });
+      return ok(null, 'Password updated. Please sign in again with your new password.');
     },
     { friendly: {}, silent: true },
   );

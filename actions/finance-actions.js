@@ -16,6 +16,7 @@ import {
   generateCommunityServiceObligations,
   createObligation,
   waiveObligation,
+  refreshObligation,
 } from '@/lib/finance';
 import {
   generateDuesSchema,
@@ -486,12 +487,20 @@ export async function createTransactionAction(_prevState, formData) {
 
   return runAction(async () => {
     const data = parsed.data;
+    const created = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(17002)`;
+    const category = await tx.transactionCategory.findUnique({ where: { id: data.categoryId } });
+    if (!category || category.type !== data.type) {
+      const error = new Error('Select an active category matching the transaction type.');
+      error.name = 'FinanceError';
+      throw error;
+    }
     const year = new Date(data.transactionDate).getFullYear();
-    const count = await prisma.financialTransaction.count({
+    const count = await tx.financialTransaction.count({
       where: { transactionNumber: { startsWith: `TXN-${year}-` } },
     });
 
-    const created = await prisma.financialTransaction.create({
+    return tx.financialTransaction.create({
       data: {
         transactionNumber: `TXN-${year}-${String(count + 1).padStart(4, '0')}`,
         transactionDate: new Date(data.transactionDate),
@@ -504,6 +513,7 @@ export async function createTransactionAction(_prevState, formData) {
         recordedById: user.id,
         recordedByName: user.name,
       },
+    });
     });
 
     await audit({
@@ -547,7 +557,9 @@ export async function voidTransactionAction(formData) {
       return { success: false, message: 'That transaction is already voided.' };
     }
 
-    const updated = await prisma.financialTransaction.update({
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(17002)`;
+      const transaction = await tx.financialTransaction.update({
       where: { id: parsed.data.transactionId },
       data: {
         status: 'VOIDED',
@@ -555,6 +567,12 @@ export async function voidTransactionAction(formData) {
         voidedById: user.id,
         voidReason: parsed.data.reason,
       },
+      });
+      if (before.paymentId) {
+        const payment = await tx.payment.findUnique({ where: { id: before.paymentId }, select: { obligationId: true } });
+        if (payment?.obligationId) await refreshObligation(tx, payment.obligationId);
+      }
+      return transaction;
     });
 
     await audit({
@@ -583,6 +601,7 @@ export async function updateSettingAction(formData) {
   const value = str(formData, 'value');
   if (!key) return { success: false, message: 'Missing setting key.' };
 
+  return runAction(async () => {
   const updated = await setSetting(key, value, user.id);
   await audit({
     category: 'ADMIN',
@@ -596,4 +615,5 @@ export async function updateSettingAction(formData) {
   revalidatePath('/admin/settings');
   revalidatePath('/settings');
   return ok({ key }, 'Setting updated.');
+  });
 }

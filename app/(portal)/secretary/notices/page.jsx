@@ -32,7 +32,7 @@ const STATUS_OPTIONS = [
 export default async function SecretaryNoticesPage({ searchParams }) {
   await requirePermission(PERMISSIONS.NOTICE_MANAGE);
   const params = await searchParams;
-  const { q, status, page, pageSize, skip, take } = readListParams(params, { defaultPageSize: 20 });
+  const { q, status, page, pageSize, skip, take } = readListParams(params, { allowedStatuses: STATUS_OPTIONS.map((s) => s.value), defaultPageSize: 20 });
   const priority = NOTICE_PRIORITIES.includes(params?.priority) ? params.priority : null;
   const audience = NOTICE_AUDIENCES.includes(params?.audience) ? params.audience : null;
 

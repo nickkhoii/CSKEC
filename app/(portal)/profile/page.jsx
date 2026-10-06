@@ -99,7 +99,7 @@ export default async function ProfilePage() {
         <Card>
           <CardHeader
             title="Change password"
-            description="Changing your password signs you out of every other device."
+            description="Changing your password signs you out of all devices. Sign in again with your new password."
           />
           <CardBody>
             <ChangePasswordForm />

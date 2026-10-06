@@ -19,6 +19,7 @@ import {
   updateActivitySchema,
   updateNoticeSchema,
   updatePostSchema,
+  updateMeetingSchema,
 } from '@/validations/schemas';
 import { fromZod, ok, runAction, str } from './helpers';
 
@@ -405,12 +406,15 @@ export async function setNoticeStatusAction(noticeId, status) {
   });
 }
 
-export async function createActivityAction(_prevState, formData) {
+export async function createActivityAction(_prevState, formData) { return saveActivity(formData, false); }
+export async function updateActivityAction(_prevState, formData) { return saveActivity(formData, true); }
+async function saveActivity(formData, editing) {
   const user = await requireUserApi();
   if (!user) return { success: false, message: 'Session expired.' };
   if (!(await can(PERMISSIONS.ACTIVITY_MANAGE))) return denied('manage activities');
 
-  const parsed = activitySchema.safeParse({
+  const parsed = (editing ? updateActivitySchema : activitySchema).safeParse({
+    id: str(formData, 'id'),
     title: str(formData, 'title'),
     description: str(formData, 'description'),
     type: str(formData, 'type'),
@@ -430,14 +434,15 @@ export async function createActivityAction(_prevState, formData) {
   const data = parsed.data;
 
   return runAction(async () => {
-    const activity = await prisma.activity.create({
+    const activity = await prisma.activity[editing ? 'update' : 'create']({
+      ...(editing ? { where: { id: data.id } } : {}),
       data: {
         title: data.title,
         description: data.description,
         type: data.type,
         category: data.category,
         startsAt: data.startsAt,
-        endsAt: data.endsAt,
+        endsAt: data.endsAt ? new Date(data.endsAt) : null,
         venue: data.venue,
         address: data.address,
         requiresAttendance: data.requiresAttendance,
@@ -446,13 +451,13 @@ export async function createActivityAction(_prevState, formData) {
         capacity: data.capacity,
         status: data.status,
         publishedAt: data.status === 'PUBLISHED' ? new Date() : null,
-        createdById: user.id,
+        ...(editing ? {} : { createdById: user.id }),
       },
     });
 
     await audit({
       category: 'CONTENT',
-      action: 'ACTIVITY_CREATED',
+      action: editing ? 'ACTIVITY_UPDATED' : 'ACTIVITY_CREATED',
       entity: 'Activity',
       entityId: activity.id,
       description: `${user.name} created activity "${activity.title}".`,
@@ -517,12 +522,15 @@ export async function setActivityStatusAction(activityId, status) {
   });
 }
 
-export async function createMeetingAction(_prevState, formData) {
+export async function createMeetingAction(_prevState, formData) { return saveMeeting(formData, false); }
+export async function updateMeetingAction(_prevState, formData) { return saveMeeting(formData, true); }
+async function saveMeeting(formData, editing) {
   const user = await requireUserApi();
   if (!user) return { success: false, message: 'Session expired.' };
   if (!(await can(PERMISSIONS.MEETING_MANAGE))) return denied('manage meetings');
 
-  const parsed = meetingSchema.safeParse({
+  const parsed = (editing ? updateMeetingSchema : meetingSchema).safeParse({
+    id: str(formData, 'id'),
     title: str(formData, 'title'),
     meetingType: str(formData, 'meetingType'),
     meetingDate: str(formData, 'meetingDate'),
@@ -539,7 +547,8 @@ export async function createMeetingAction(_prevState, formData) {
   const data = parsed.data;
 
   return runAction(async () => {
-    const meeting = await prisma.meeting.create({
+    const meeting = await prisma.meeting[editing ? 'update' : 'create']({
+      ...(editing ? { where: { id: data.id } } : {}),
       data: {
         title: data.title,
         meetingType: data.meetingType,
@@ -551,13 +560,13 @@ export async function createMeetingAction(_prevState, formData) {
         presidingOfficerId: data.presidingOfficerId,
         activityId: data.activityId,
         status: data.status,
-        createdById: user.id,
+        ...(editing ? {} : { createdById: user.id }),
       },
     });
 
     await audit({
       category: 'CONTENT',
-      action: 'MEETING_CREATED',
+      action: editing ? 'MEETING_UPDATED' : 'MEETING_CREATED',
       entity: 'Meeting',
       entityId: meeting.id,
       description: `${user.name} scheduled the meeting "${meeting.title}".`,

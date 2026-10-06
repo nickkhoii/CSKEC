@@ -24,7 +24,7 @@ const STATUS_OPTIONS = Object.entries(PAYMENT_STATUS_LABELS).map(([value, label]
 export default async function TreasurerDuesPage({ searchParams }) {
   await requirePermission(PERMISSIONS.FINANCE_VIEW_REPORTS);
   const params = await searchParams;
-  const { q, status, page, pageSize, skip, take } = readListParams(params, { defaultPageSize: 25 });
+  const { q, status, page, pageSize, skip, take } = readListParams(params, { allowedStatuses: STATUS_OPTIONS.map((s) => s.value), defaultPageSize: 25 });
 
   const [defaultAmount, dueDay] = await Promise.all([
     getSetting(SETTING_KEYS.DEFAULT_DUES_AMOUNT),

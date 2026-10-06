@@ -31,7 +31,7 @@ const STATUS_OPTIONS = [
 export default async function SecretaryAttendancePage({ searchParams }) {
   const reviewer = await requireRole('SECRETARY');
   const params = await searchParams;
-  const { q, status, page, pageSize, skip, take } = readListParams(params, {
+  const { q, status, page, pageSize, skip, take } = readListParams(params, { allowedStatuses: STATUS_OPTIONS.map((s) => s.value),
     defaultPageSize: 20,
   });
   const canRecordManual = await can(PERMISSIONS.ATTENDANCE_RECORD_MANUAL);

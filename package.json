@@ -12,6 +12,9 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:integration": "node scripts/test-database.mjs",
+    "smoke": "node scripts/smoke.js",
+    "smoke:isolated": "node scripts/smoke-isolated.mjs",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "prisma:generate": "node scripts/run-prisma.js generate",
@@ -45,9 +48,16 @@
     "autoprefixer": "10.4.20",
     "eslint": "8.57.1",
     "eslint-config-next": "15.5.27",
-    "postcss": "8.4.49",
+    "playwright": "^1.63.0",
+    "postcss": "8.5.29",
     "prisma": "6.19.3",
     "tailwindcss": "3.4.17",
-    "vitest": "3.2.4"
+    "vitest": "4.1.11"
+  },
+  "overrides": {
+    "postcss": "$postcss",
+    "deepmerge-ts": "8.0.2",
+    "postcss-selector-parser": "7.1.6",
+    "tinypool": "2.1.2"
   }
 }

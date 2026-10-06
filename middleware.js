@@ -66,10 +66,6 @@ export function middleware(request) {
   const { pathname, search } = request.nextUrl;
 
   if (isPublic(pathname)) {
-    // A signed-in visitor has no reason to see the login screen again.
-    if (pathname === '/login' && hasSessionCookie(request)) {
-      return NextResponse.redirect(new URL('/dashboard', request.nextUrl));
-    }
     return NextResponse.next();
   }
 
@@ -78,7 +74,11 @@ export function middleware(request) {
   );
   if (!needsAuth) return NextResponse.next();
 
-  if (hasSessionCookie(request)) return NextResponse.next();
+  if (hasSessionCookie(request)) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-portal-pathname', pathname);
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
 
   const loginUrl = new URL('/login', request.nextUrl);
   // Same-origin relative path only; safeRedirectPath() re-validates this on use.

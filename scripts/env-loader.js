@@ -47,7 +47,7 @@ function parseEnvFile(filePath) {
 function loadEnv(options = {}) {
   const { requireDatabase = false, directUrlFallback = true } = options;
   const merged = {};
-  for (const file of ['.env.local', '.env']) {
+  for (const file of ['.env', '.env.local']) {
     Object.assign(merged, parseEnvFile(path.join(ROOT, file)));
   }
   for (const [key, value] of Object.entries(merged)) {

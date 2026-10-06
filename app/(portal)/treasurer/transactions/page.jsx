@@ -29,7 +29,7 @@ const STATUS_OPTIONS = [
 export default async function TransactionsPage({ searchParams }) {
   await requirePermission(PERMISSIONS.FINANCE_VIEW_REPORTS);
   const params = await searchParams;
-  const { q, status, page, pageSize, skip, take } = readListParams(params, {
+  const { q, status, page, pageSize, skip, take } = readListParams(params, { allowedStatuses: STATUS_OPTIONS.map((s) => s.value),
     defaultPageSize: 25,
   });
   const canAddEntry = await can(PERMISSIONS.FINANCE_MANAGE_TRANSACTIONS);

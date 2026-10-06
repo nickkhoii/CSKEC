@@ -32,7 +32,7 @@ const ROLE_OPTIONS = ROLE_LIST.map((r) => ({ value: r, label: ROLE_LABELS[r] }))
 export default async function AdminUsersPage({ searchParams }) {
   const currentUser = await requireRole('SYSTEM_ADMIN');
   const params = await searchParams;
-  const { q, status, page, pageSize, skip, take } = readListParams(params, {
+  const { q, status, page, pageSize, skip, take } = readListParams(params, { allowedStatuses: STATUS_OPTIONS.map((s) => s.value),
     defaultPageSize: 20,
   });
   const role = ROLE_LIST.includes(params?.role) ? params.role : null;

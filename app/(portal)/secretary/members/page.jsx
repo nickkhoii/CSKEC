@@ -35,7 +35,7 @@ const STATUS_OPTIONS = MEMBERSHIP_STATUSES.map((s) => ({
 export default async function SecretaryMembersPage({ searchParams }) {
   await requireRole('SECRETARY');
   const params = await searchParams;
-  const { q, status, page, pageSize, skip, take } = readListParams(params, {
+  const { q, status, page, pageSize, skip, take } = readListParams(params, { allowedStatuses: STATUS_OPTIONS.map((s) => s.value),
     defaultPageSize: 20,
   });
 

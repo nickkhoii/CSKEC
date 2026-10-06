@@ -31,7 +31,7 @@ const STATUS_OPTIONS = [
 export default async function TreasurerPaymentsPage({ searchParams }) {
   const treasurer = await requireRole('TREASURER');
   const params = await searchParams;
-  const { q, status, page, pageSize, skip, take } = readListParams(params, {
+  const { q, status, page, pageSize, skip, take } = readListParams(params, { allowedStatuses: STATUS_OPTIONS.map((s) => s.value),
     defaultPageSize: 20,
   });
   const canRecordManual = await can(PERMISSIONS.FINANCE_RECORD_MANUAL_PAYMENT);
@@ -241,7 +241,7 @@ function SubmissionTable({ rows, canReview }) {
             ) : (
               <PaymentReviewButtons
                 submissionId={r.id}
-                balance={r.obligation?.balance}
+                balance={r.obligation?.balance == null ? null : moneyToString(r.obligation.balance)}
                 disabled={!canReview(r)}
                 disabledReason="You cannot verify your own payment"
               />

@@ -11,6 +11,11 @@ export const metadata = {
     'Secure members portal for Centro Sugbo Eagles Club: club updates, attendance verification, dues and community service payments, meeting minutes and official records.',
   robots: { index: false, follow: false }, // internal system - never index
   applicationName: 'CSEC Members Portal',
+  icons: {
+    icon: { url: '/club-logo.jpg', type: 'image/jpeg' },
+    apple: '/club-logo.jpg',
+    shortcut: '/club-logo.jpg',
+  },
 };
 
 export const viewport = {

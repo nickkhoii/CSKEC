@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import Link from 'next/link';
 import { useFormStatus } from 'react-dom';
 import { KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui';
@@ -32,8 +33,7 @@ function Submit() {
  * Password change.
  *
  * Changing the password bumps `tokenVersion`, which invalidates every other
- * session for this account - the user stays signed in here and is signed out
- * everywhere else.
+ * session for this account. Sign in again using the new password afterwards.
  */
 export function ChangePasswordForm() {
   const [state, formAction] = useActionState(changePasswordAction, null);
@@ -41,6 +41,7 @@ export function ChangePasswordForm() {
   return (
     <form action={formAction} className="space-y-4">
       <ActionFeedback state={state} />
+      {state?.success ? <Link href="/login" className="block text-sm font-medium underline">Sign in with your new password</Link> : null}
 
       <Field label="Current password">
         <Input name="currentPassword" type="password" required autoComplete="current-password" />

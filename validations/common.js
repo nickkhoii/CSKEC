@@ -11,7 +11,7 @@ import { Prisma } from '@prisma/client';
  */
 
 /** Trim, bound length, and reject control characters. */
-export const requiredText = (label, { min = 1, max = 255 } = {}) =>
+export const requiredText = (label, { min = 1, max = 255, multiline = false } = {}) =>
   z
     .string({
       required_error: `${label} is required.`,
@@ -25,7 +25,7 @@ export const requiredText = (label, { min = 1, max = 255 } = {}) =>
     // tricks. Printable characters - including <, > and quotes - are allowed:
     // React escapes them on render, which is the real XSS defence.
     // eslint-disable-next-line no-control-regex
-    .refine((value) => !/[\u0000-\u001F\u007F]/.test(value), {
+    .refine((value) => !(multiline ? /[\u0000-\u0008\u000b\u000c\u000e-\u001F\u007F]/ : /[\u0000-\u001F\u007F]/).test(value), {
       message: `${label} contains invalid characters.`,
     });
 
@@ -152,7 +152,7 @@ export const cuidField = (label = 'Record') =>
     .trim()
     .min(8, `${label} identifier is invalid.`)
     .max(40, `${label} identifier is invalid.`)
-    .regex(/^[a-z0-9]+$/i, `${label} identifier is invalid.`);
+    .regex(/^[a-z0-9][a-z0-9_-]*$/i, `${label} identifier is invalid.`);
 
 /** Password policy, enforced identically on register / change / admin reset. */
 export const passwordField = (label = 'Password') =>
@@ -163,7 +163,8 @@ export const passwordField = (label = 'Password') =>
     .regex(/[a-z]/, `${label} must contain a lowercase letter.`)
     .regex(/[A-Z]/, `${label} must contain an uppercase letter.`)
     .regex(/\d/, `${label} must contain a number.`)
-    .regex(/[^A-Za-z0-9]/, `${label} must contain a symbol.`);
+    .regex(/[^A-Za-z0-9]/, `${label} must contain a symbol.`)
+    .refine((value) => new TextEncoder().encode(value).length <= 72, `${label} must be at most 72 bytes long.`);
 
 /** `{ field: message }` map for form rendering. */
 export function fieldErrors(error) {

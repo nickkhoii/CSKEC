@@ -39,7 +39,9 @@ function looksLikeProduction() {
   return (
     process.env.NODE_ENV === 'production' ||
     process.env.VERCEL === '1' ||
-    /neon\.tech\/(?!.*-pooler)/i.test(url) ||
+    // Pooler hosts (`ep-…-pooler.…`) are what the README prescribes for local
+    // development, so only a NON-pooler neon.tech endpoint reads as production.
+    (/neon\.tech\//i.test(url) && !/-pooler/i.test(url)) ||
     /supabase|railway|azurehost|amazonaws|rds/i.test(url)
   );
 }

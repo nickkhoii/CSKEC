@@ -58,7 +58,7 @@ export function form(fields) {
  * string, so a plain object would silently arrive at the action as
  * "[object Object]" and the upload branch would never run.
  */
-export function fakeFile({ name = 'proof.png', type = 'image/png', bytes = 'fake-png-bytes' } = {}) {
+export function fakeFile({ name = 'proof.png', type = 'image/png', bytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]) } = {}) {
   const buffer = Buffer.from(bytes);
   if (typeof File === 'function') {
     return new File([buffer], name, { type });

@@ -182,6 +182,7 @@ export const authConfig = {
         token.status = user.status;
         token.tokenVersion = user.tokenVersion ?? 0;
         token.mustChangePassword = user.mustChangePassword ?? false;
+        token.authenticatedAt = Date.now();
         token.permissions = permissionsForRole(user.role);
       }
       return token;
@@ -196,6 +197,7 @@ export const authConfig = {
         session.user.tokenVersion = token.tokenVersion ?? 0;
         session.user.mustChangePassword = Boolean(token.mustChangePassword);
         session.user.permissions = token.permissions ?? [];
+        session.user.authenticatedAt = token.authenticatedAt ?? (token.iat ? token.iat * 1000 : null);
       }
       return session;
     },

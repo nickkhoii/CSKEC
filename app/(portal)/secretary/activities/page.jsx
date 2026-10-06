@@ -32,7 +32,7 @@ const STATUS_OPTIONS = [
 export default async function SecretaryActivitiesPage({ searchParams }) {
   await requirePermission(PERMISSIONS.ACTIVITY_MANAGE);
   const params = await searchParams;
-  const { q, status, page, pageSize, skip, take } = readListParams(params, { defaultPageSize: 20 });
+  const { q, status, page, pageSize, skip, take } = readListParams(params, { allowedStatuses: STATUS_OPTIONS.map((s) => s.value), defaultPageSize: 20 });
   const type = ACTIVITY_TYPES.includes(params?.type) ? params.type : null;
 
   const where = {
@@ -51,6 +51,9 @@ export default async function SecretaryActivitiesPage({ searchParams }) {
       select: {
         id: true,
         title: true,
+        description: true,
+        category: true,
+        address: true,
         type: true,
         startsAt: true,
         endsAt: true,
@@ -173,7 +176,7 @@ function ActivityTable({ rows }) {
         }),
         col('actions', 'Actions', {
           align: 'right',
-          render: (r) => <ActivityStatusControls activity={r} />,
+          render: (r) => <ActivityStatusControls activity={{ ...r, creditsHours: r.creditsHours == null ? null : Number(r.creditsHours), feeAmount: r.feeAmount == null ? null : Number(r.feeAmount) }} />,
         }),
       ]}
     />

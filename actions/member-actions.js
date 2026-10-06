@@ -51,6 +51,12 @@ export async function createMemberAction(_prevState, formData) {
   if (!parsed.success) return fromZod(parsed.error);
 
   const data = parsed.data;
+  if (data.createAccount && data.role && data.role !== 'MEMBER') {
+    return { success: false, message: 'The Secretary can create member accounts only. An administrator assigns officer roles.' };
+  }
+  if (data.createAccount && !data.accountPassword) {
+    return { success: false, message: 'An initial password is required to create an account.' };
+  }
 
   if (data.accountPassword) {
     const issues = await passwordStrengthIssues(data.accountPassword);
@@ -80,7 +86,7 @@ return runAction(
         const memberNumber =
           data.memberNumber && isValidMemberNumber(data.memberNumber)
             ? data.memberNumber.toUpperCase()
-            : (await reserveMemberNumber()).memberNumber;
+            : (await reserveMemberNumber({ tx })).memberNumber;
 
         const member = await tx.member.create({
           data: {

@@ -8,6 +8,7 @@ import { ROLE_BADGE, ROLE_LABELS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { buildNavigation } from './navigation';
 import { Avatar } from '@/components/ui';
+import { ClubLogo } from '@/components/club-logo';
 
 /**
  * ---------------------------------------------------------------------------
@@ -59,9 +60,7 @@ export function Sidebar({ user, permissions, mobileOpen, onCloseMobile }) {
       >
         <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-4">
           <Link href="/dashboard" onClick={onCloseMobile} className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gold-500 text-sm font-bold text-navy-950">
-              CSEC
-            </span>
+            <ClubLogo priority />
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-white">Centro Sugbo</span>
               <span className="block truncate text-[11px] uppercase tracking-wide text-gold-400">

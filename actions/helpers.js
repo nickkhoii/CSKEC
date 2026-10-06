@@ -82,7 +82,7 @@ export async function runAction(body, options = {}) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       return fromPrisma(error, friendly);
     }
-    if (error?.name?.endsWith('Error') && typeof error?.message === 'string') {
+    if (['AttendanceError', 'FinanceError', 'OfficerError', 'StorageError', 'SettingError'].includes(error?.name)) {
       return fail(error.message);
     }
     return fail('Something went wrong. Please try again.');
@@ -103,6 +103,11 @@ export function str(formData, key, fallback = null) {
   if (value === undefined || value === null) return fallback;
   const text = String(value).trim();
   return text.length === 0 ? fallback : text;
+}
+
+export function passwordValue(formData, key) {
+  const value = formData?.get?.(key);
+  return typeof value === 'string' ? value : '';
 }
 
 /** Read all values for a key (checkbox groups / multi-select). */

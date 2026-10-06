@@ -14,7 +14,7 @@ import {
   POST_CATEGORIES,
   POST_CATEGORY_LABELS,
 } from '@/lib/constants';
-import { createActivityAction, setActivityStatusAction } from '@/actions/content-actions';
+import { createActivityAction, updateActivityAction, setActivityStatusAction } from '@/actions/content-actions';
 
 /**
  * ---------------------------------------------------------------------------
@@ -159,26 +159,27 @@ function ActivityFields({ activity }) {
   );
 }
 
-export function CreateActivityModal() {
-  const [state, formAction] = useActionState(createActivityAction, null);
+export function CreateActivityModal({ activity = null }) {
+  const [state, formAction] = useActionState(activity ? updateActivityAction : createActivityAction, null);
   const { isOpen, open, close } = useDisclosure();
 
   return (
     <>
       <Button onClick={open}>
         <CalendarPlus className="h-4 w-4" aria-hidden="true" />
-        New activity
+        {activity ? 'Edit activity' : 'New activity'}
       </Button>
       <Modal
         open={isOpen}
         onClose={close}
-        title="New activity"
+        title={activity ? 'Edit activity' : 'New activity'}
         description="Schedule an attendance-tracked club event."
         size="lg"
       >
         <form action={formAction} className="space-y-5">
           <ActionFeedback state={state} />
-          <ActivityFields />
+          {activity ? <input type="hidden" name="id" value={activity.id} /> : null}
+          <ActivityFields activity={activity} />
           <div className="flex items-center gap-2 border-t border-slate-200 pt-4">
             <SubmitButton label="Save activity" />
           </div>
@@ -192,6 +193,7 @@ export function CreateActivityModal() {
 export function ActivityStatusControls({ activity }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5">
+      <CreateActivityModal activity={activity} />
       {activity.status !== 'PUBLISHED' ? (
         <ActionButton
           action={setActivityStatusAction}

@@ -77,6 +77,7 @@ export default async function CashFlowReportPage({ searchParams }) {
       >
         <SimpleTable
           rows={seriesRows}
+          rowKey="key"
           columns={[
             col('month', 'Month', { render: (r) => <span className="text-xs">{r.label}</span> }),
             col('income', 'Income', {
@@ -112,6 +113,7 @@ export default async function CashFlowReportPage({ searchParams }) {
       >
         <SimpleTable
           rows={annual.months}
+          rowKey="month"
           columns={[
             col('month', 'Month', {
               render: (r) => <span className="text-xs">{MONTH_NAMES[r.month - 1]}</span>,

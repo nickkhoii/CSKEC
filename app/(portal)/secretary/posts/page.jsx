@@ -34,7 +34,7 @@ const STATUS_OPTIONS = [
 export default async function SecretaryPostsPage({ searchParams }) {
   await requirePermission(PERMISSIONS.POST_MANAGE);
   const params = await searchParams;
-  const { q, status, page, pageSize, skip, take } = readListParams(params, { defaultPageSize: 20 });
+  const { q, status, page, pageSize, skip, take } = readListParams(params, { allowedStatuses: STATUS_OPTIONS.map((s) => s.value), defaultPageSize: 20 });
   const category = POST_CATEGORIES.includes(params?.category) ? params.category : null;
 
   const where = {
@@ -55,6 +55,12 @@ export default async function SecretaryPostsPage({ searchParams }) {
         title: true,
         category: true,
         excerpt: true,
+        content: true,
+        eventDate: true,
+        startTime: true,
+        endTime: true,
+        venue: true,
+        activityId: true,
         status: true,
         isPinned: true,
         publishedAt: true,

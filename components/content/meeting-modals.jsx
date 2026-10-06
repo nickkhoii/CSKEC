@@ -12,7 +12,7 @@ import {
   MEETING_TYPE_LABELS,
   MINUTE_STATUSES,
 } from '@/lib/constants';
-import { createMeetingAction, saveMinuteAction } from '@/actions/content-actions';
+import { createMeetingAction, updateMeetingAction, saveMinuteAction } from '@/actions/content-actions';
 
 /**
  * ---------------------------------------------------------------------------
@@ -35,33 +35,34 @@ function Field({ label, required, hint, children }) {
   );
 }
 
-export function CreateMeetingModal({ officers = [], activities = [] }) {
-  const [state, formAction] = useActionState(createMeetingAction, null);
+export function CreateMeetingModal({ officers = [], activities = [], meeting = null }) {
+  const [state, formAction] = useActionState(meeting ? updateMeetingAction : createMeetingAction, null);
   const { isOpen, open, close } = useDisclosure();
 
   return (
     <>
       <Button onClick={open}>
         <CalendarPlus className="h-4 w-4" aria-hidden="true" />
-        Schedule meeting
+        {meeting ? 'Edit meeting' : 'Schedule meeting'}
       </Button>
       <Modal
         open={isOpen}
         onClose={close}
-        title="Schedule a meeting"
+        title={meeting ? 'Edit meeting' : 'Schedule a meeting'}
         description="Members see the date immediately; minutes are added afterwards."
         size="lg"
       >
         <form action={formAction} className="space-y-5">
           <ActionFeedback state={state} />
+          {meeting ? <input type="hidden" name="id" value={meeting.id} /> : null}
 
           <Field label="Title" required>
-            <Input name="title" required maxLength={200} placeholder="General Membership Meeting" />
+            <Input name="title" defaultValue={meeting?.title ?? ''} required maxLength={200} placeholder="General Membership Meeting" />
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Meeting type" required>
-              <Select name="meetingType" defaultValue="GENERAL_MEMBERSHIP_MEETING">
+              <Select name="meetingType" defaultValue={meeting?.meetingType ?? 'GENERAL_MEMBERSHIP_MEETING'}>
                 {MEETING_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {MEETING_TYPE_LABELS[t]}
@@ -70,7 +71,7 @@ export function CreateMeetingModal({ officers = [], activities = [] }) {
               </Select>
             </Field>
             <Field label="Status" required>
-              <Select name="status" defaultValue="SCHEDULED">
+              <Select name="status" defaultValue={meeting?.status ?? 'SCHEDULED'}>
                 {MEETING_STATUSES.map((s) => (
                   <option key={s} value={s}>
                     {s.charAt(0) + s.slice(1).toLowerCase()}
@@ -83,23 +84,23 @@ export function CreateMeetingModal({ officers = [], activities = [] }) {
                 name="meetingDate"
                 type="date"
                 required
-                defaultValue={new Date().toISOString().slice(0, 10)}
+                defaultValue={meeting?.meetingDate ? new Date(meeting.meetingDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)}
               />
             </Field>
             <Field label="Venue">
-              <Input name="venue" maxLength={200} />
+              <Input name="venue" defaultValue={meeting?.venue ?? ''} maxLength={200} />
             </Field>
             <Field label="Start time">
-              <Input name="startTime" maxLength={20} placeholder="07:00 PM" />
+              <Input name="startTime" defaultValue={meeting?.startTime ?? ''} required maxLength={20} placeholder="07:00 PM" />
             </Field>
             <Field label="End time">
-              <Input name="endTime" maxLength={20} placeholder="09:00 PM" />
+              <Input name="endTime" defaultValue={meeting?.endTime ?? ''} maxLength={20} placeholder="09:00 PM" />
             </Field>
           </div>
 
           {officers.length > 0 ? (
             <Field label="Presiding officer">
-              <Select name="presidingOfficerId" defaultValue="">
+              <Select name="presidingOfficerId" defaultValue={meeting?.presidingOfficerId ?? ''}>
                 <option value="">Not specified</option>
                 {officers.map((member) => (
                   <option key={member.id} value={member.id}>
@@ -112,7 +113,7 @@ export function CreateMeetingModal({ officers = [], activities = [] }) {
 
           {activities.length > 0 ? (
             <Field label="Linked activity" hint="Links the meeting to an attendance-tracked event.">
-              <Select name="activityId" defaultValue="">
+              <Select name="activityId" defaultValue={meeting?.activityId ?? ''}>
                 <option value="">Not linked</option>
                 {activities.map((activity) => (
                   <option key={activity.id} value={activity.id}>
@@ -124,7 +125,7 @@ export function CreateMeetingModal({ officers = [], activities = [] }) {
           ) : null}
 
           <Field label="Description / agenda preview">
-            <Textarea name="description" rows={3} maxLength={2000} />
+            <Textarea name="description" defaultValue={meeting?.description ?? ''} rows={3} maxLength={2000} />
           </Field>
 
           <div className="flex items-center gap-2 border-t border-slate-200 pt-4">

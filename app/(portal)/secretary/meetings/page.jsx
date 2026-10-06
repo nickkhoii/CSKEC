@@ -27,7 +27,7 @@ const STATUS_OPTIONS = MEETING_STATUSES.map((s) => ({ value: s, label: MEETING_S
 export default async function SecretaryMeetingsPage({ searchParams }) {
   await requirePermission(PERMISSIONS.MINUTE_MANAGE);
   const params = await searchParams;
-  const { q, status, page, pageSize, skip, take } = readListParams(params, { defaultPageSize: 20 });
+  const { q, status, page, pageSize, skip, take } = readListParams(params, { allowedStatuses: STATUS_OPTIONS.map((s) => s.value), defaultPageSize: 20 });
   const type = MEETING_TYPES.includes(params?.type) ? params.type : null;
 
   const where = {
@@ -49,10 +49,14 @@ export default async function SecretaryMeetingsPage({ searchParams }) {
         meetingType: true,
         meetingDate: true,
         startTime: true,
+        endTime: true,
+        description: true,
+        activityId: true,
+        presidingOfficerId: true,
         venue: true,
         status: true,
         presidingOfficer: { select: { firstName: true, middleName: true, lastName: true } },
-        minutes: { select: { id: true, status: true } },
+        minutes: true,
         _count: { select: { attendees: true } },
       },
     }),
@@ -114,7 +118,7 @@ export default async function SecretaryMeetingsPage({ searchParams }) {
           </button>
         </FilterBar>
 
-        <MeetingTable rows={meetings} />
+        <MeetingTable rows={meetings} officers={officers.map((o) => ({ id: o.id, name: fullName(o) }))} activities={activities} />
         <Pagination page={page} pageSize={pageSize} total={total} buildHref={buildHref} />
       </DataPanel>
 
@@ -127,7 +131,7 @@ export default async function SecretaryMeetingsPage({ searchParams }) {
   );
 }
 
-function MeetingTable({ rows }) {
+function MeetingTable({ rows, officers, activities }) {
   return (
     <SimpleTable
       rows={rows}
@@ -186,7 +190,7 @@ function MeetingTable({ rows }) {
         }),
         col('actions', 'Minutes', {
           align: 'right',
-          render: (r) => <MinuteEditorModal meeting={r} />,
+          render: (r) => <div className="flex justify-end gap-2"><CreateMeetingModal meeting={r} officers={officers} activities={activities} /><MinuteEditorModal meeting={r} minutes={r.minutes} /></div>,
         }),
       ]}
     />

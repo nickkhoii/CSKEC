@@ -133,7 +133,7 @@ export const postSchema = z.object({
   title: requiredText('Title', { max: 200 }),
   category: enumOf(POST_CATEGORIES, 'category'),
   excerpt: optionalText('Excerpt', { max: 300 }),
-  content: requiredText('Content', { min: 10, max: 20000 }),
+  content: requiredText('Content', { min: 10, max: 20000, multiline: true }),
   eventDate: optionalDateField('Event date'),
   startTime: optionalText('Start time', { max: 20 }),
   endTime: optionalText('End time', { max: 20 }),
@@ -208,7 +208,7 @@ export const updateActivitySchema = z
 
 const noticeFields = {
   title: requiredText('Title', { max: 200 }),
-  content: requiredText('Content', { min: 5, max: 10000 }),
+  content: requiredText('Content', { min: 5, max: 10000, multiline: true }),
   noticeDate: dateField('Notice date'),
   expiryDate: optionalDateField('Expiry date'),
   priority: enumOf(NOTICE_PRIORITIES, 'priority').default('NORMAL'),
@@ -249,6 +249,8 @@ export const meetingSchema = z.object({
   activityId: optionalText('Activity', { max: 40 }),
   status: enumOf(['SCHEDULED', 'COMPLETED', 'CANCELLED'], 'meeting status').default('SCHEDULED'),
 });
+
+export const updateMeetingSchema = meetingSchema.extend({ id: cuidField('Meeting') });
 
 export const minuteSchema = z.object({
   meetingId: cuidField('Meeting'),

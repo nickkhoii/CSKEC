@@ -311,7 +311,7 @@ describe.skipIf(!hasTestDatabase)('server actions', () => {
         where: { submissionId: submission.id },
       });
       expect(attachment).toBeTruthy();
-      expect(attachment.url).toMatch(/^\/uploads\//);
+      expect(attachment.url).toMatch(/^\/api\/files\//);
 
       // A member may not post against somebody else's obligation.
       const otherMember = await db.member.create({
@@ -702,12 +702,12 @@ describe.skipIf(!hasTestDatabase)('server actions', () => {
 
       signInAs('SYSTEM_ADMIN');
       const allowed = await F.updateSettingAction(
-        form({ key: 'dues.amount', value: '250.00' }),
+        form({ key: 'finance.default_dues_amount', value: '250.00' }),
       );
       expect(allowed.success, JSON.stringify(allowed)).toBe(true);
 
       settings.clearSettingsCache();
-      expect(await settings.getSetting('dues.amount')).toBe('250.00');
+      expect(await settings.getSetting('finance.default_dues_amount')).toBe('250.00');
     });
 
     it('creates and deactivates a user as the System Administrator', async () => {
@@ -739,6 +739,68 @@ describe.skipIf(!hasTestDatabase)('server actions', () => {
   });
 
   // =========================================================================
+  describe('audit regressions', () => {
+    it('redirects successful login without rereading the incoming session cookie', async () => {
+      ctx.user = null;
+      await expect(AU.loginAction(null, form({ email: 'member@test.local', password: 'ChangeMe!2024' }))).rejects.toMatchObject({ digest: 'NEXT_REDIRECT;/dashboard' });
+    });
+    it('invalidates a session when its token version is revoked', async () => {
+      signInAs('MEMBER');
+      const session = await load('@/lib/session');
+      await db.user.update({ where: { id: users.MEMBER.id }, data: { tokenVersion: { increment: 1 } } });
+      expect(await session.getSessionUser()).toBeNull();
+      users.MEMBER = await db.user.findUnique({ where: { id: users.MEMBER.id }, include: { role: true } });
+    });
+    it('prevents Secretary-created administrator accounts', async () => {
+      signInAs('SECRETARY');
+      const result = await M.createMemberAction(null, form({ firstName: 'Malicious', lastName: 'Account',
+        email: 'escalation@test.local', dateJoined: dayOffset(-1), createAccount: 'on',
+        accountPassword: 'Str0ng!Passw0rd', role: 'SYSTEM_ADMIN' }));
+      expect(result.success).toBe(false);
+      expect(await db.user.count({ where: { email: 'escalation@test.local' } })).toBe(0);
+    });
+    it('reactivates an account through the edit form and clears its soft deletion', async () => {
+      signInAs('SYSTEM_ADMIN');
+      const account = await db.user.findUniqueOrThrow({ where: { email: 'newuser@test.local' } });
+      const result = await AD.updateUserAction(null, form({ id: account.id, email: account.email,
+        fullName: account.fullName, role: 'MEMBER', status: 'ACTIVE' }));
+      expect(result.success, JSON.stringify(result)).toBe(true);
+      expect((await db.user.findUniqueOrThrow({ where: { id: account.id } })).deletedAt).toBeNull();
+    });
+    it('restores an obligation balance when its payment transaction is voided', async () => {
+      signInAs('TREASURER');
+      const payment = await db.payment.findFirstOrThrow({ where: { referenceNumber: 'RCPT-TEST-1' } });
+      const result = await F.voidTransactionAction(form({ transactionId: payment.transactionId, reason: 'Payment reversed by the bank.' }));
+      expect(result.success, JSON.stringify(result)).toBe(true);
+      const obligation = await db.financialObligation.findUniqueOrThrow({ where: { id: payment.obligationId } });
+      expect(Number(obligation.balance)).toBe(500);
+      expect(Number(obligation.amountPaid)).toBe(0);
+    });
+    it('refuses a manual payment exceeding the obligation balance', async () => {
+      signInAs('TREASURER');
+      const obligation = await db.financialObligation.findFirstOrThrow({ where: { memberId: ids.member } });
+      const finance = await load('@/lib/finance');
+      await expect(finance.recordManualPayment({ memberId: ids.member, obligationId: obligation.id,
+        amount: '999999.00', paymentDate: new Date(), referenceNumber: 'OVERPAY-TEST', paymentMethod: 'CASH',
+        reviewer: ctx.user })).rejects.toMatchObject({ code: 'OVERPAY' });
+    });
+    it('creates and edits activity times, and meeting details', async () => {
+      signInAs('SECRETARY');
+      const activityFields = { title: 'Editable activity', type: 'GMM', category: 'GMM',
+        startsAt: `${dayOffset(-1)}T09:00`, endsAt: `${dayOffset(-1)}T10:00`, status: 'DRAFT' };
+      const created = await C.createActivityAction(null, form(activityFields));
+      expect(created.success, JSON.stringify(created)).toBe(true);
+      const edited = await C.updateActivityAction(null, form({ ...activityFields, id: created.data.id, title: 'Updated activity' }));
+      expect(edited.success, JSON.stringify(edited)).toBe(true);
+      const meetingFields = { title: 'Editable meeting', meetingType: 'GENERAL_MEMBERSHIP_MEETING',
+        meetingDate: dayOffset(1), startTime: '09:00 AM', status: 'SCHEDULED' };
+      const meeting = await C.createMeetingAction(null, form(meetingFields));
+      expect(meeting.success, JSON.stringify(meeting)).toBe(true);
+      const changed = await C.updateMeetingAction(null, form({ ...meetingFields, id: meeting.data.id, status: 'CANCELLED' }));
+      expect(changed.success, JSON.stringify(changed)).toBe(true);
+    });
+  });
+
   describe('audit trail', () => {
     it('records rows for sensitive actions and never stores secrets', async () => {
       const entries = await db.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 200 });

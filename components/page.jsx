@@ -6,6 +6,7 @@ import { Printer } from 'lucide-react';
 import { Button } from './ui';
 import { useToast } from './ui/toast';
 import { cn } from '@/lib/utils';
+import { ClubLogo } from '@/components/club-logo';
 
 /**
  * ---------------------------------------------------------------------------
@@ -19,6 +20,10 @@ export function PageHeader({ title, description, actions, breadcrumb, className 
   return (
     <div className={cn('flex flex-wrap items-start justify-between gap-3', className)}>
       <div className="min-w-0">
+        <div className="mb-4 hidden items-center gap-3 print:flex">
+          <ClubLogo />
+          <p className="text-sm font-semibold text-ink">Centro Sugbo Eagles Club</p>
+        </div>
         {breadcrumb ? <div className="mb-1 text-[11px] text-ink-muted">{breadcrumb}</div> : null}
         <h1 className="text-xl font-semibold tracking-tight text-ink">{title}</h1>
         {description ? <p className="mt-1 text-sm text-ink-soft">{description}</p> : null}

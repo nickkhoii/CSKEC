@@ -34,7 +34,7 @@ const STATUS_OPTIONS = Object.entries(PAYMENT_STATUS_LABELS).map(([value, label]
 export default async function TreasurerObligationsPage({ searchParams }) {
   await requirePermission(PERMISSIONS.FINANCE_VIEW_REPORTS);
   const params = await searchParams;
-  const { q, status, page, pageSize, skip, take } = readListParams(params, { defaultPageSize: 25 });
+  const { q, status, page, pageSize, skip, take } = readListParams(params, { allowedStatuses: STATUS_OPTIONS.map((s) => s.value), defaultPageSize: 25 });
   const type = OBLIGATION_TYPES.includes(params?.type) ? params.type : null;
   const canWaive = await can(PERMISSIONS.FINANCE_WAIVE_OBLIGATION);
 
@@ -270,7 +270,7 @@ function ObligationsTable({ rows, canWaive }) {
           render: (r) =>
             canWaive && r.status !== 'PAID' && r.status !== 'WAIVED' ? (
               <WaiveObligationButton
-                obligation={{ ...r, typeLabel: OBLIGATION_TYPE_LABELS[r.type] }}
+                obligation={{ id: r.id, title: r.title, typeLabel: OBLIGATION_TYPE_LABELS[r.type] }}
               />
             ) : null,
         }),

@@ -4,6 +4,7 @@ import { getSessionUser } from '@/lib/session';
 import { dashboardPathForRole } from '@/lib/rbac';
 import { SETTING_KEYS, getSetting } from '@/lib/settings';
 import { LoginForm } from '@/components/auth/login-form';
+import { ClubLogo } from '@/components/club-logo';
 
 export const metadata = { title: 'Sign in' };
 // Never prerender: the page reads the session and club settings at request time.
@@ -34,9 +35,7 @@ export default async function LoginPage({ searchParams }) {
         />
         <div className="relative">
           <div className="flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-gold-500 text-base font-bold text-navy-950">
-              CSEC
-            </span>
+            <ClubLogo className="h-24 w-[72px] rounded-lg" priority />
             <div>
               <p className="text-base font-semibold text-white">{clubName}</p>
               <p className="text-xs uppercase tracking-[0.15em] text-gold-400">Members Portal</p>
@@ -72,9 +71,7 @@ export default async function LoginPage({ searchParams }) {
       <div className="flex items-center justify-center bg-white px-5 py-12 sm:px-8">
         <div className="w-full max-w-sm">
           <div className="mb-8 lg:hidden">
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-navy-900 text-sm font-bold text-gold-400">
-              CSEC
-            </span>
+            <ClubLogo className="h-20 w-[60px] rounded-lg" priority />
           </div>
 
           <h2 className="text-xl font-semibold tracking-tight text-ink">Sign in to your account</h2>

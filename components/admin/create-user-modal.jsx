@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { UserPlus } from 'lucide-react';
@@ -46,10 +46,12 @@ export function CreateUserForm() {
   const router = useRouter();
   const toast = useToast();
 
-  if (state?.success) {
-    toast.success(state.message);
-    router.refresh();
-  }
+  useEffect(() => {
+    if (state?.success) {
+      toast.success(state.message);
+      router.refresh();
+    }
+  }, [state, toast, router]);
 
   return (
     <form action={formAction} className="space-y-4">

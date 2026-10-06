@@ -17,6 +17,10 @@ const contentSecurityPolicy = [
 ].join('; ');
 
 const nextConfig = {
+  distDir: process.env.NEXT_DIST_DIR || '.next',
+  async rewrites() {
+    return [{ source: '/uploads/:folder/:name', destination: '/api/files/:folder/:name' }];
+  },
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,

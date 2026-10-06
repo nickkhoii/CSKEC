@@ -135,14 +135,14 @@ export function PostFormFields({ post, activities = [] }) {
   );
 }
 
-export function PostFormShell({ state, action, submitLabel }) {
+export function PostFormShell({ state, submitLabel }) {
   useRefreshOnSuccess(state);
   return (
-    <form action={action} className="space-y-5">
+    <div className="space-y-5">
       <ActionFeedback state={state} />
       <div className="flex items-center gap-2 border-t border-slate-200 pt-4">
         <SubmitButton label={submitLabel} />
       </div>
-    </form>
+    </div>
   );
 }

@@ -20,19 +20,21 @@ export function AttendanceReviewButtons({ requestId, disabled, disabledReason })
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [mode, setMode] = useState(null); // 'approve' | 'reject' | null
+  const [remarks, setRemarks] = useState('');
 
   const decide = (decision) => {
     const formData = new FormData();
     formData.set('requestId', requestId);
     formData.set('decision', decision);
     formData.set('recordStatus', 'PRESENT');
-    if (mode) formData.set('remarks', mode);
+    if (remarks.trim()) formData.set('remarks', remarks.trim());
 
     startTransition(async () => {
       const result = await reviewAttendanceAction(formData);
       if (result?.success) toast.success(result.message);
       else if (result?.message) toast.error(result.message);
       setMode(null);
+      setRemarks('');
       router.refresh();
     });
   };
@@ -64,8 +66,8 @@ export function AttendanceReviewButtons({ requestId, disabled, disabledReason })
     <div className="flex flex-col items-end gap-1.5">
       <input
         autoFocus
-        value={mode === 'approve' ? '' : mode}
-        onChange={(event) => setMode(event.target.value || '')}
+        value={remarks}
+        onChange={(event) => setRemarks(event.target.value)}
         placeholder="Reason for rejection (shown to the member)"
         maxLength={1000}
         className="h-8 w-64 rounded-md border border-slate-300 px-2 text-xs focus:border-navy-500 focus:outline-none focus:ring-2 focus:ring-navy-200"

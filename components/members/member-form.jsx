@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { UserPlus } from 'lucide-react';
@@ -53,10 +53,12 @@ export function MemberForm({ suggestedNumber }) {
   const router = useRouter();
   const toast = useToast();
 
-  if (state?.success) {
-    toast.success(state.message);
-    router.refresh();
-  }
+  useEffect(() => {
+    if (state?.success) {
+      toast.success(state.message);
+      router.refresh();
+    }
+  }, [state, toast, router]);
 
   return (
     <form action={formAction} className="space-y-5">
@@ -163,7 +165,7 @@ function AccountToggle({ checked, onChange }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Portal role" required>
             <Select name="role" defaultValue="MEMBER">
-              {ROLE_LIST.map((r) => (
+              {ROLE_LIST.filter((r) => r === 'MEMBER').map((r) => (
                 <option key={r} value={r}>
                   {ROLE_LABELS[r]}
                 </option>
