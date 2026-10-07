@@ -8,6 +8,25 @@ Built with Next.js 15, React 19, JavaScript, Tailwind CSS, Prisma 6,
 PostgreSQL and Auth.js. See [AUDIT.md](AUDIT.md) for the repairs, verification
 scope and remaining deployment limits.
 
+## Minutes and official attendance
+
+Link a meeting to its attendance-tracked activity using **Edit meeting**. The
+minutes editor, member meeting view, and printed minutes automatically show the
+linked activity's official `PRESENT` records, with member names and numbers.
+The editor fetches attendance each time it opens; the meeting view reads the
+current ledger on every visit. Attendance corrections therefore appear even
+after minutes have been saved or approved.
+
+Pending or rejected requests and `ABSENT`, `EXCUSED`, and `LATE` records are
+excluded. Meetings without an activity link show a prompt to link one, and
+linked meetings without present records show an explicit empty list. Existing
+manually entered guest records remain separate. Legacy member attendee entries
+are retained in the database but do not count as official presence.
+
+No database migration is required: the existing unique `Meeting.activityId`
+relationship, unique attendance record per activity/member, and activity/status
+index already support this feature without storing duplicate attendance copies.
+
 ## Run locally
 
 Requirements: Node.js 22 or newer, npm, and PostgreSQL (the configured Neon

@@ -1,0 +1,10 @@
+Secretary account
+
+View Minutes
+-it should be displayed the present member during that meeting
+Secretary Attendance
+-cannot approve his request
+
+treasurer account
+
+Administrator should not be part of the member it should not be included in the bill

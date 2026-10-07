@@ -1,6 +1,7 @@
 ﻿'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
+import { MeetingAttendance } from './meeting-attendance';
 import { CalendarPlus, NotebookPen } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { Input, Select, Textarea } from '@/components/ui/form';
@@ -12,7 +13,7 @@ import {
   MEETING_TYPE_LABELS,
   MINUTE_STATUSES,
 } from '@/lib/constants';
-import { createMeetingAction, updateMeetingAction, saveMinuteAction } from '@/actions/content-actions';
+import { createMeetingAction, updateMeetingAction, saveMinuteAction, getMinuteAttendanceAction } from '@/actions/content-actions';
 
 /**
  * ---------------------------------------------------------------------------
@@ -141,10 +142,24 @@ export function MinuteEditorModal({ meeting }) {
   const [state, formAction] = useActionState(saveMinuteAction, null);
   const { isOpen, open, close } = useDisclosure();
   const minutes = meeting.minutes;
+  const [attendance, setAttendance] = useState(null);
+  const [attendanceError, setAttendanceError] = useState(null);
+  async function openEditor() {
+    setAttendance(null);
+    setAttendanceError(null);
+    open();
+    try {
+      const result = await getMinuteAttendanceAction(meeting.id);
+      if (result.success) setAttendance(result.data);
+      else setAttendanceError(result.message);
+    } catch {
+      setAttendanceError('Unable to load attendance. Close and reopen the editor to retry.');
+    }
+  }
 
   return (
     <>
-      <Button size="sm" variant={minutes ? 'secondary' : 'primary'} onClick={open}>
+      <Button size="sm" variant={minutes ? 'secondary' : 'primary'} onClick={openEditor}>
         <NotebookPen className="h-3.5 w-3.5" aria-hidden="true" />
         {minutes ? 'Edit minutes' : 'Write minutes'}
       </Button>
@@ -158,6 +173,11 @@ export function MinuteEditorModal({ meeting }) {
         <form action={formAction} className="space-y-5">
           <ActionFeedback state={state} />
           <input type="hidden" name="meetingId" value={meeting.id} />
+          <div aria-live="polite">
+            {attendance ? <MeetingAttendance attendance={attendance} /> : (
+              <p className="text-sm" role={attendanceError ? 'alert' : undefined}>{attendanceError ?? 'Loading official attendance...'}</p>
+            )}
+          </div>
 
           <Field label="Minutes title" required>
             <Input

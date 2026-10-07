@@ -169,6 +169,8 @@ export async function reviewAttendanceAction(formData) {
 
       revalidatePath('/secretary/attendance');
       revalidatePath('/attendance');
+      revalidatePath('/meetings', 'layout');
+      revalidatePath('/secretary/meetings');
       return ok(
         { recordId: result.record?.id ?? null },
         decision === 'APPROVE'
@@ -219,6 +221,8 @@ export async function manualAttendanceAction(formData) {
     });
 
     revalidatePath('/secretary/attendance');
+    revalidatePath('/meetings', 'layout');
+    revalidatePath('/secretary/meetings');
     return ok(
       { created: result.created, skipped: result.skipped.length },
       `${result.created} record${result.created === 1 ? '' : 's'} saved${

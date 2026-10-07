@@ -52,6 +52,7 @@ export default async function SecretaryMeetingsPage({ searchParams }) {
         endTime: true,
         description: true,
         activityId: true,
+        activity: { select: { _count: { select: { attendanceRecords: { where: { status: 'PRESENT' } } } } } },
         presidingOfficerId: true,
         venue: true,
         status: true,
@@ -67,7 +68,7 @@ export default async function SecretaryMeetingsPage({ searchParams }) {
       select: { id: true, firstName: true, middleName: true, lastName: true },
     }),
     prisma.activity.findMany({
-      where: { status: 'PUBLISHED' },
+      where: { requiresAttendance: true },
       orderBy: { startsAt: 'desc' },
       take: 50,
       select: { id: true, title: true },
@@ -143,7 +144,7 @@ function MeetingTable({ rows, officers, activities }) {
               <p className="mt-0.5 text-[11px] text-ink-muted">
                 {MEETING_TYPE_LABELS[r.meetingType]}
                 {r.presidingOfficer ? ` \u00b7 ${fullName(r.presidingOfficer)}` : ''}
-                {r._count.attendees > 0 ? ` \u00b7 ${r._count.attendees} attendee(s)` : ''}
+                {r.activity ? ` \u00b7 ${r.activity._count.attendanceRecords} officially present` : ''}
               </p>
             </>
           ),

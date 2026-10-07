@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { meetingAttendance } from '@/lib/meeting-attendance';
 import { prisma } from '@/lib/prisma';
 import { audit } from '@/lib/audit';
 import { PERMISSIONS } from '@/lib/rbac';
@@ -547,6 +548,14 @@ async function saveMeeting(formData, editing) {
   const data = parsed.data;
 
   return runAction(async () => {
+    if (data.activityId) {
+      const activity = await prisma.activity.findUnique({
+        where: { id: data.activityId }, select: { requiresAttendance: true },
+      });
+      if (!activity?.requiresAttendance) {
+        return { success: false, message: 'Select an existing attendance-tracked activity for this meeting.' };
+      }
+    }
     const meeting = await prisma.meeting[editing ? 'update' : 'create']({
       ...(editing ? { where: { id: data.id } } : {}),
       data: {
@@ -576,7 +585,21 @@ async function saveMeeting(formData, editing) {
 
     revalidatePath('/secretary/meetings');
     revalidatePath('/meetings');
+    revalidatePath(`/meetings/${meeting.id}`);
     return ok({ id: meeting.id }, 'Meeting scheduled.');
+  });
+}
+
+export async function getMinuteAttendanceAction(meetingId) {
+  const user = await requireUserApi();
+  if (!user) return { success: false, message: 'Session expired.' };
+  if (!(await can(PERMISSIONS.MINUTE_MANAGE))) return denied('manage meeting minutes');
+  const parsed = minuteSchema.shape.meetingId.safeParse(meetingId);
+  if (!parsed.success) return fromZod(parsed.error);
+  return runAction(async () => {
+    const attendance = await meetingAttendance(parsed.data);
+    if (!attendance) return { success: false, message: 'That meeting does not exist.' };
+    return ok(attendance);
   });
 }
 

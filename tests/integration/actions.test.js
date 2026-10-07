@@ -180,6 +180,62 @@ describe.skipIf(!hasTestDatabase)('server actions', () => {
   });
 
   // =========================================================================
+  describe('minutes attendance', () => {
+    it('reads current official presence for only the linked meeting, without copying attendees', async () => {
+      const { meetingAttendance } = await load('@/lib/meeting-attendance');
+      const activity = await db.activity.create({ data: {
+        title: 'Minutes attendance fixture', type: 'GMM', category: 'GMM',
+        startsAt: new Date(dayOffset(-1)), status: 'PUBLISHED', createdById: users.SECRETARY.id,
+      } });
+      signInAs('SECRETARY');
+      const created = await C.createMeetingAction(null, form({
+        title: 'Minutes attendance fixture', meetingType: 'REGULAR', meetingDate: dayOffset(-1),
+        startTime: '19:00', activityId: activity.id,
+      }));
+      expect(created.success).toBe(true);
+      const meetingId = created.data.id;
+      // A pending request and a manually entered member attendee are not proof of presence.
+      await db.attendanceRequest.create({ data: { activityId: activity.id, memberId: ids.member } });
+      await db.meetingAttendee.create({ data: { meetingId, memberId: ids.member, name: 'Stale name' } });
+      expect(await meetingAttendance(meetingId)).toEqual({ linked: true, members: [] });
+      const record = await A.manualAttendanceAction(form({ activityId: activity.id, memberIds: [ids.member], recordStatus: 'PRESENT' }));
+      expect(record.success).toBe(true);
+      const read = await C.getMinuteAttendanceAction(meetingId);
+      expect(read.data.members).toEqual([expect.objectContaining({ memberId: ids.member, name: 'Ana Reyes', memberNumber: 'CSEC-TEST-0001' })]);
+      const saved = await C.saveMinuteAction(null, form({ meetingId, title: 'Official minutes', status: 'SUBMITTED' }));
+      expect(saved.success).toBe(true);
+      expect((await meetingAttendance(meetingId)).members).toHaveLength(1);
+      expect(await db.meetingAttendee.count({ where: { meetingId } })).toBe(1);
+      // Subsequent corrections must be reflected even after minutes have been saved.
+      for (const status of ['ABSENT', 'EXCUSED', 'LATE']) {
+        await db.attendanceRecord.update({ where: { activityId_memberId: { activityId: activity.id, memberId: ids.member } }, data: { status } });
+        expect((await meetingAttendance(meetingId)).members).toEqual([]);
+      }
+      await db.attendanceRecord.update({ where: { activityId_memberId: { activityId: activity.id, memberId: ids.member } }, data: { status: 'PRESENT' } });
+      expect((await meetingAttendance(meetingId)).members).toHaveLength(1);
+      await db.meeting.update({ where: { id: meetingId }, data: { activityId: null } });
+      expect(await meetingAttendance(meetingId)).toEqual({ linked: false, members: [] });
+      expect(await meetingAttendance('cmissingmeeting123')).toBeNull();
+      expect((await C.getMinuteAttendanceAction('bad')).success).toBe(false);
+      expect((await C.getMinuteAttendanceAction('cmissingmeeting123')).success).toBe(false);
+      signInAs('MEMBER');
+      expect((await C.getMinuteAttendanceAction(meetingId)).success).toBe(false);
+      ctx.user = null;
+      expect((await C.getMinuteAttendanceAction(meetingId)).success).toBe(false);
+      await db.attendanceRequest.deleteMany({ where: { activityId: activity.id } });
+    });
+
+    it('rejects links to activities that do not track attendance', async () => {
+      signInAs('SECRETARY');
+      const result = await C.createMeetingAction(null, form({
+        title: 'Invalid activity', meetingType: 'REGULAR', meetingDate: dayOffset(),
+        startTime: '19:00', activityId: 'cmissingactivity123',
+      }));
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('attendance-tracked');
+    });
+  });
+
   describe('attendance', () => {
     it('lets a member submit, and the Secretary approve, an attendance request', async () => {
       signInAs('MEMBER');

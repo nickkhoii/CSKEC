@@ -28,6 +28,25 @@ try {
   const { PrismaClient } = createRequire(import.meta.url)('@prisma/client');
   const prisma = new PrismaClient({ datasourceUrl: url });
   await prisma.user.updateMany({ data: { mustChangePassword: false } });
+  const secretary = await prisma.user.findUniqueOrThrow({ where: { email: 'secretary@csec.local' } });
+  const memberUser = await prisma.user.findUniqueOrThrow({ where: { email: 'member@csec.local' } });
+  const member = await prisma.member.findUniqueOrThrow({ where: { id: memberUser.memberId } });
+  const attendanceActivity = await prisma.activity.create({ data: {
+    title: 'Browser minutes attendance', type: 'GMM', category: 'GMM', startsAt: new Date(),
+    status: 'PUBLISHED', createdById: secretary.id,
+  } });
+  const attendanceMeeting = await prisma.meeting.create({ data: {
+    title: 'Browser minutes attendance', meetingDate: new Date(), startTime: '19:00',
+    activityId: attendanceActivity.id, createdById: secretary.id,
+    minutes: { create: { title: 'Browser minutes attendance', status: 'SUBMITTED',
+      preparedById: secretary.id, preparedByName: secretary.fullName } },
+  } });
+  await prisma.attendanceRecord.create({ data: {
+    activityId: attendanceActivity.id, memberId: member.id, status: 'PRESENT',
+    source: 'MANUAL', recordedById: secretary.id,
+  } });
+  env.SMOKE_ATTENDANCE_MEETING_ID = attendanceMeeting.id;
+  env.SMOKE_ATTENDANCE_MEMBER_NUMBER = member.memberNumber;
   env.SMOKE_ACCOUNTS = JSON.stringify(await prisma.user.findMany({ where: { status: 'ACTIVE' },
     select: { email: true, mustChangePassword: true, role: { select: { key: true } } } }));
   await prisma.$disconnect();

@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { ArrowLeft, MapPin } from 'lucide-react';
 import { requirePermission, PERMISSIONS } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
+import { meetingAttendance } from '@/lib/meeting-attendance';
+import { MeetingAttendance } from '@/components/content/meeting-attendance';
 import { formatDate, formatDateTime } from '@/lib/utils';
 import {
   MEETING_STATUS_BADGE,
@@ -43,6 +45,7 @@ export default async function MeetingDetailPage({ params }) {
   if (meeting.minutes?.status === 'DRAFT' && !canManage) notFound();
 
   const minutes = meeting.minutes;
+  const attendance = await meetingAttendance(id);
 
   return (
     <div className="space-y-6">
@@ -107,7 +110,11 @@ export default async function MeetingDetailPage({ params }) {
 
       {minutes ? <Minutes minutes={minutes} /> : <NoMinutes />}
 
-      {meeting.attendees.length > 0 ? <Attendees rows={meeting.attendees} /> : null}
+      <Card className="print-block" data-print="block">
+        <CardBody><MeetingAttendance attendance={attendance} /></CardBody>
+      </Card>
+
+      {meeting.attendees.filter((row) => !row.memberId).length > 0 ? <Attendees rows={meeting.attendees.filter((row) => !row.memberId)} /> : null}
     </div>
   );
 }
@@ -206,7 +213,7 @@ function Minutes({ minutes }) {
 function Attendees({ rows }) {
   return (
     <Card className="print-block" data-print="block">
-      <CardHeader title="Attendees" />
+      <CardHeader title="Guests (manually recorded)" />
       <CardBody className="p-0">
         <SimpleTable
           rows={rows}
